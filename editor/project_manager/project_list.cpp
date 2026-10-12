@@ -162,6 +162,10 @@ void ProjectListItemControl::_notification(int p_what) {
 		} break;
 
 		case NOTIFICATION_DRAW: {
+			// Optional card background (defined by modern themes).
+			if (has_theme_stylebox(SNAME("normal"), SNAME("ProjectList"))) {
+				draw_style_box(get_theme_stylebox(SNAME("normal"), SNAME("ProjectList")), Rect2(Point2(), get_size()));
+			}
 			if (is_selected && is_hovering) {
 				draw_style_box(get_theme_stylebox(SNAME("hover_pressed"), SNAME("ProjectList")), Rect2(Point2(), get_size()));
 			} else if (is_selected) {
@@ -632,7 +636,7 @@ ProjectListItemControl::ProjectListItemControl() {
 	// Quick actions, so editing and running a project is a single tap.
 	edit_button = memnew(Button);
 	edit_button->set_name("EditButton");
-	edit_button->set_theme_type_variation(SceneStringName(FlatButton));
+	edit_button->set_theme_type_variation("CardEditButton");
 	edit_button->set_v_size_flags(SIZE_SHRINK_CENTER);
 	edit_button->set_custom_minimum_size(Size2(48, 48) * EDSCALE);
 	edit_button->set_tooltip_text(TTRC("Edit"));
@@ -642,7 +646,7 @@ ProjectListItemControl::ProjectListItemControl() {
 
 	run_button = memnew(Button);
 	run_button->set_name("RunButton");
-	run_button->set_theme_type_variation(SceneStringName(FlatButton));
+	run_button->set_theme_type_variation("CardRunButton");
 	run_button->set_v_size_flags(SIZE_SHRINK_CENTER);
 	run_button->set_custom_minimum_size(Size2(48, 48) * EDSCALE);
 	run_button->set_tooltip_text(TTRC("Run"));
@@ -1781,6 +1785,7 @@ ProjectList::ProjectList() {
 
 	project_list_vbox = memnew(VBoxContainer);
 	project_list_vbox->set_h_size_flags(Control::SIZE_EXPAND_FILL);
+	project_list_vbox->add_theme_constant_override("separation", int(8 * EDSCALE));
 	list_margin->add_child(project_list_vbox);
 
 	_config_path = EditorPaths::get_singleton()->get_data_dir().path_join("projects.cfg");

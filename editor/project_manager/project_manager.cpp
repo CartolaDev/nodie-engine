@@ -247,6 +247,7 @@ void ProjectManager::_update_theme(bool p_skip_creation) {
 		main_view_container->add_theme_style_override(SceneStringName(panel), get_theme_stylebox("panel_container", "ProjectManager"));
 
 		title_bar_logo->set_button_icon(get_editor_theme_icon("TitleBarLogo"));
+		quick_settings_button->set_button_icon(get_editor_theme_icon("Tools"));
 
 		_set_main_view_icon(MAIN_VIEW_PROJECTS, get_editor_theme_icon("ProjectList"));
 		_set_main_view_icon(MAIN_VIEW_ASSETLIB, get_editor_theme_icon("AssetStore"));
@@ -323,7 +324,7 @@ Button *ProjectManager::_add_main_view(MainViewTab p_id, const String &p_name, c
 
 	Button *toggle_button = memnew(Button);
 	toggle_button->set_flat(true);
-	toggle_button->set_theme_type_variation("MainScreenButton");
+	toggle_button->set_theme_type_variation("NavRailButton");
 	toggle_button->set_toggle_mode(true);
 	toggle_button->set_button_group(main_view_toggles_group);
 	toggle_button->set_text(p_name);
@@ -1518,11 +1519,40 @@ ProjectManager::ProjectManager() {
 	body_hbox->set_v_size_flags(Control::SIZE_EXPAND_FILL);
 	main_vbox->add_child(body_hbox);
 
+	// Navigation rail: logo on top, views in the middle, settings at the bottom.
+	VBoxContainer *nav_rail = memnew(VBoxContainer);
+	nav_rail->set_custom_minimum_size(Size2(96, 0) * EDSCALE);
+	body_hbox->add_child(nav_rail);
+
 	main_view_toggles = memnew(BoxContainer);
 	main_view_toggles->set_vertical(true);
 	main_view_toggles->set_alignment(BoxContainer::ALIGNMENT_BEGIN);
-	main_view_toggles->set_custom_minimum_size(Size2(96, 0) * EDSCALE);
-	body_hbox->add_child(main_view_toggles);
+	main_view_toggles->add_theme_constant_override("separation", int(4 * EDSCALE));
+
+	if (!can_expand) {
+		// Without custom window controls the title bar is just wasted height,
+		// so its logo and settings button move into the rail.
+		title_bar->hide();
+
+		title_bar_logo->get_parent()->remove_child(title_bar_logo);
+		title_bar_logo->set_custom_minimum_size(Size2(0, 56) * EDSCALE);
+		nav_rail->add_child(title_bar_logo);
+	}
+
+	nav_rail->add_child(main_view_toggles);
+
+	if (!can_expand) {
+		Control *rail_spacer = memnew(Control);
+		rail_spacer->set_v_size_flags(Control::SIZE_EXPAND_FILL);
+		nav_rail->add_child(rail_spacer);
+
+		quick_settings_button->get_parent()->remove_child(quick_settings_button);
+		quick_settings_button->set_theme_type_variation("NavRailButton");
+		quick_settings_button->set_icon_alignment(HORIZONTAL_ALIGNMENT_CENTER);
+		quick_settings_button->set_vertical_icon_alignment(VERTICAL_ALIGNMENT_TOP);
+		quick_settings_button->set_custom_minimum_size(Size2(0, 64) * EDSCALE);
+		nav_rail->add_child(quick_settings_button);
+	}
 
 	main_view_container = memnew(PanelContainer);
 	main_view_container->set_h_size_flags(Control::SIZE_EXPAND_FILL);
@@ -1627,6 +1657,7 @@ ProjectManager::ProjectManager() {
 			fab_layer->set_mouse_filter(Control::MOUSE_FILTER_IGNORE);
 			project_list_panel->add_child(fab_layer);
 
+			create_btn->set_theme_type_variation("FabButton");
 			create_btn->set_custom_minimum_size(Size2(0, 56) * EDSCALE);
 			fab_layer->add_child(create_btn);
 			create_btn->set_anchors_and_offsets_preset(Control::PRESET_BOTTOM_RIGHT, Control::PRESET_MODE_MINSIZE, 16 * EDSCALE);
@@ -1790,6 +1821,8 @@ ProjectManager::ProjectManager() {
 		footer_bar->set_alignment(BoxContainer::ALIGNMENT_END);
 		footer_bar->add_theme_constant_override("separation", 20 * EDSCALE);
 		main_vbox->add_child(footer_bar);
+		// The version is shown in the About dialog; the footer only costs height.
+		footer_bar->hide();
 
 #ifdef ENGINE_UPDATE_CHECK_ENABLED
 		EngineUpdateLabel *update_label = memnew(EngineUpdateLabel);

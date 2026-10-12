@@ -727,16 +727,26 @@ void ThemeModern::populate_standard_styles(const Ref<EditorTheme> &p_theme, Edit
 
 		// ProjectList.
 		{
-			Ref<StyleBoxFlat> style_project_list_hover = p_config.flat_button_hover->duplicate();
-			style_project_list_hover->set_bg_color(_get_base_color(p_config, -0.2, 0.75));
-			style_project_list_hover->set_content_margin_all(0);
+			// Card look: every project is a rounded card, the selected one gets an accent border.
+			const int card_radius = int(12 * EDSCALE);
 
-			Ref<StyleBoxFlat> style_project_list_selected = style_project_list_hover->duplicate();
-			style_project_list_selected->set_bg_color(_get_base_color(p_config, -1.0, 0.75));
+			Ref<StyleBoxFlat> style_project_list_normal = p_config.flat_button_hover->duplicate();
+			style_project_list_normal->set_bg_color(p_config.surface_base_color);
+			style_project_list_normal->set_corner_radius_all(card_radius);
+			style_project_list_normal->set_content_margin_all(0);
+
+			Ref<StyleBoxFlat> style_project_list_hover = style_project_list_normal->duplicate();
+			style_project_list_hover->set_bg_color(p_config.surface_high_color);
+
+			Ref<StyleBoxFlat> style_project_list_selected = style_project_list_normal->duplicate();
+			style_project_list_selected->set_bg_color(p_config.surface_base_color.lerp(p_config.accent_color, 0.2));
+			style_project_list_selected->set_border_width_all(int(2 * EDSCALE));
+			style_project_list_selected->set_border_color(p_config.accent_color);
 
 			Ref<StyleBoxFlat> style_project_list_hover_pressed = style_project_list_selected->duplicate();
-			style_project_list_hover_pressed->set_bg_color(_get_base_color(p_config, -1.2, 0.75));
+			style_project_list_hover_pressed->set_bg_color(p_config.surface_high_color.lerp(p_config.accent_color, 0.25));
 
+			p_theme->set_stylebox("normal", "ProjectList", style_project_list_normal);
 			p_theme->set_stylebox("hovered", "ProjectList", style_project_list_hover);
 			p_theme->set_stylebox("selected", "ProjectList", style_project_list_selected);
 			p_theme->set_stylebox("hover_pressed", "ProjectList", style_project_list_hover_pressed);
@@ -1611,6 +1621,105 @@ void ThemeModern::populate_editor_styles(const Ref<EditorTheme> &p_theme, Editor
 		p_theme->set_constant("sidebar_button_icon_separation", "ProjectManager", int(6 * EDSCALE));
 		p_theme->set_icon("browse_folder", "ProjectManager", p_theme->get_icon(SNAME("FolderBrowse"), EditorStringName(EditorIcons)));
 		p_theme->set_icon("browse_file", "ProjectManager", p_theme->get_icon(SNAME("FileBrowse"), EditorStringName(EditorIcons)));
+
+		// Navigation rail buttons (left side of the project manager).
+		{
+			Ref<StyleBoxFlat> rail_selected = p_config.base_style->duplicate();
+			rail_selected->set_bg_color(p_config.accent_color * Color(1, 1, 1, 0.2));
+			rail_selected->set_border_width_all(0);
+			rail_selected->set_corner_radius_all(int(16 * EDSCALE));
+			rail_selected->set_content_margin_all(int(6 * EDSCALE));
+
+			Ref<StyleBoxFlat> rail_hover = rail_selected->duplicate();
+			rail_hover->set_bg_color(p_config.mono_color * Color(1, 1, 1, 0.08));
+
+			Ref<StyleBoxFlat> rail_hover_pressed = rail_selected->duplicate();
+			rail_hover_pressed->set_bg_color(p_config.accent_color * Color(1, 1, 1, 0.3));
+
+			Ref<StyleBoxFlat> rail_normal = rail_selected->duplicate();
+			rail_normal->set_bg_color(Color(0, 0, 0, 0));
+
+			p_theme->set_type_variation("NavRailButton", "Button");
+			p_theme->set_stylebox(CoreStringName(normal), "NavRailButton", rail_normal);
+			p_theme->set_stylebox(SceneStringName(hover), "NavRailButton", rail_hover);
+			p_theme->set_stylebox(SceneStringName(pressed), "NavRailButton", rail_selected);
+			p_theme->set_stylebox("hover_pressed", "NavRailButton", rail_hover_pressed);
+			p_theme->set_stylebox("disabled", "NavRailButton", rail_normal);
+
+			p_theme->set_color(SceneStringName(font_color), "NavRailButton", p_config.font_color);
+			p_theme->set_color("font_hover_color", "NavRailButton", p_config.font_hover_color);
+			p_theme->set_color("font_pressed_color", "NavRailButton", p_config.accent_color);
+			p_theme->set_color("font_hover_pressed_color", "NavRailButton", p_config.accent_color);
+			p_theme->set_color("icon_normal_color", "NavRailButton", p_config.icon_normal_color);
+			p_theme->set_color("icon_hover_color", "NavRailButton", p_config.icon_hover_color);
+			p_theme->set_color("icon_pressed_color", "NavRailButton", p_config.accent_color);
+			p_theme->set_color("icon_hover_pressed_color", "NavRailButton", p_config.accent_color);
+		}
+
+		// Tonal icon buttons on the project cards (edit / run).
+		{
+			const auto add_tonal_button = [&](const StringName &p_variation, const Color &p_tint) {
+				Ref<StyleBoxFlat> tonal_normal = p_config.base_style->duplicate();
+				tonal_normal->set_bg_color(p_tint * Color(1, 1, 1, 0.16));
+				tonal_normal->set_border_width_all(0);
+				tonal_normal->set_corner_radius_all(int(12 * EDSCALE));
+				tonal_normal->set_content_margin_all(int(8 * EDSCALE));
+
+				Ref<StyleBoxFlat> tonal_hover = tonal_normal->duplicate();
+				tonal_hover->set_bg_color(p_tint * Color(1, 1, 1, 0.28));
+
+				Ref<StyleBoxFlat> tonal_pressed = tonal_normal->duplicate();
+				tonal_pressed->set_bg_color(p_tint * Color(1, 1, 1, 0.4));
+
+				Ref<StyleBoxFlat> tonal_disabled = tonal_normal->duplicate();
+				tonal_disabled->set_bg_color(Color(1, 1, 1, 0.04));
+
+				p_theme->set_type_variation(p_variation, "Button");
+				p_theme->set_stylebox(CoreStringName(normal), p_variation, tonal_normal);
+				p_theme->set_stylebox(SceneStringName(hover), p_variation, tonal_hover);
+				p_theme->set_stylebox(SceneStringName(pressed), p_variation, tonal_pressed);
+				p_theme->set_stylebox("hover_pressed", p_variation, tonal_pressed);
+				p_theme->set_stylebox("disabled", p_variation, tonal_disabled);
+
+				p_theme->set_color("icon_normal_color", p_variation, p_tint);
+				p_theme->set_color("icon_hover_color", p_variation, p_tint);
+				p_theme->set_color("icon_pressed_color", p_variation, p_tint);
+				p_theme->set_color("icon_hover_pressed_color", p_variation, p_tint);
+				p_theme->set_color("icon_disabled_color", p_variation, p_config.icon_disabled_color);
+			};
+			add_tonal_button(StringName("CardEditButton"), p_config.accent_color);
+			add_tonal_button(StringName("CardRunButton"), p_config.success_color);
+		}
+
+		// Floating action button ("Create").
+		{
+			const Color on_accent = p_config.accent_color.get_luminance() > 0.5 ? Color(0, 0, 0, 0.9) : Color(1, 1, 1, 0.95);
+
+			Ref<StyleBoxFlat> fab_normal = p_config.base_style->duplicate();
+			fab_normal->set_bg_color(p_config.accent_color);
+			fab_normal->set_border_width_all(0);
+			fab_normal->set_corner_radius_all(int(16 * EDSCALE));
+			fab_normal->set_content_margin_individual(int(18 * EDSCALE), int(12 * EDSCALE), int(20 * EDSCALE), int(12 * EDSCALE));
+			fab_normal->set_shadow_color(Color(0, 0, 0, 0.35));
+			fab_normal->set_shadow_size(int(6 * EDSCALE));
+			fab_normal->set_shadow_offset(Vector2(0, 2 * EDSCALE));
+
+			Ref<StyleBoxFlat> fab_hover = fab_normal->duplicate();
+			fab_hover->set_bg_color(p_config.accent_color.lerp(p_config.mono_color, 0.15));
+
+			Ref<StyleBoxFlat> fab_pressed = fab_normal->duplicate();
+			fab_pressed->set_bg_color(p_config.accent_color.darkened(0.2));
+
+			p_theme->set_type_variation("FabButton", "Button");
+			p_theme->set_stylebox(CoreStringName(normal), "FabButton", fab_normal);
+			p_theme->set_stylebox(SceneStringName(hover), "FabButton", fab_hover);
+			p_theme->set_stylebox(SceneStringName(pressed), "FabButton", fab_pressed);
+			p_theme->set_stylebox("hover_pressed", "FabButton", fab_pressed);
+
+			for (const char *color_name : { "font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color", "font_focus_color", "icon_normal_color", "icon_hover_color", "icon_pressed_color", "icon_hover_pressed_color", "icon_focus_color" }) {
+				p_theme->set_color(color_name, "FabButton", on_accent);
+			}
+		}
 
 		// ProjectTag.
 		{

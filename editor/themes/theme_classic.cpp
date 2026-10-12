@@ -1574,6 +1574,9 @@ void ThemeClassic::populate_editor_styles(const Ref<EditorTheme> &p_theme, Edito
 		p_theme->set_icon("browse_folder", "ProjectManager", p_theme->get_icon(SNAME("FolderBrowse"), EditorStringName(EditorIcons)));
 		p_theme->set_icon("browse_file", "ProjectManager", p_theme->get_icon(SNAME("FileBrowse"), EditorStringName(EditorIcons)));
 
+		// The project manager navigation rail keeps the classic main screen look.
+		p_theme->set_type_variation("NavRailButton", "MainScreenButton");
+
 		// ProjectTag.
 		{
 			p_theme->set_type_variation("ProjectTagButton", "Button");
