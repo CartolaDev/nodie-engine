@@ -327,6 +327,10 @@ Button *ProjectManager::_add_main_view(MainViewTab p_id, const String &p_name, c
 	toggle_button->set_toggle_mode(true);
 	toggle_button->set_button_group(main_view_toggles_group);
 	toggle_button->set_text(p_name);
+	// Navigation rail style: icon above the label, big touch target.
+	toggle_button->set_custom_minimum_size(Size2(0, 64) * EDSCALE);
+	toggle_button->set_icon_alignment(HORIZONTAL_ALIGNMENT_CENTER);
+	toggle_button->set_vertical_icon_alignment(VERTICAL_ALIGNMENT_TOP);
 	toggle_button->connect(SceneStringName(pressed), callable_mp(this, &ProjectManager::_select_main_view).bind((int)p_id));
 
 	main_view_toggles->add_child(toggle_button);
@@ -868,6 +872,7 @@ void ProjectManager::_update_project_buttons() {
 	run_btn->set_disabled(empty_selection || is_missing_project_selected);
 
 	erase_missing_btn->set_disabled(!project_list->is_any_project_missing());
+	erase_missing_btn->set_visible(project_list->is_any_project_missing());
 }
 
 void ProjectManager::_open_options_popup() {
@@ -1479,13 +1484,6 @@ ProjectManager::ProjectManager() {
 			title_bar->add_child(left_spacer);
 		}
 
-		main_view_toggles = memnew(HBoxContainer);
-		main_view_toggles->set_alignment(BoxContainer::ALIGNMENT_CENTER);
-		main_view_toggles->set_h_size_flags(Control::SIZE_EXPAND_FILL);
-		main_view_toggles->set_stretch_ratio(2.0);
-		title_bar->add_child(main_view_toggles);
-		title_bar->set_center_control(main_view_toggles);
-
 		if (can_expand) {
 			// Spacer to center main toggles.
 			right_spacer = memnew(Control);
@@ -1515,9 +1513,21 @@ ProjectManager::ProjectManager() {
 		}
 	}
 
+	// Body: navigation rail on the left, current view on the right.
+	HBoxContainer *body_hbox = memnew(HBoxContainer);
+	body_hbox->set_v_size_flags(Control::SIZE_EXPAND_FILL);
+	main_vbox->add_child(body_hbox);
+
+	main_view_toggles = memnew(BoxContainer);
+	main_view_toggles->set_vertical(true);
+	main_view_toggles->set_alignment(BoxContainer::ALIGNMENT_BEGIN);
+	main_view_toggles->set_custom_minimum_size(Size2(96, 0) * EDSCALE);
+	body_hbox->add_child(main_view_toggles);
+
 	main_view_container = memnew(PanelContainer);
+	main_view_container->set_h_size_flags(Control::SIZE_EXPAND_FILL);
 	main_view_container->set_v_size_flags(Control::SIZE_EXPAND_FILL);
-	main_vbox->add_child(main_view_container);
+	body_hbox->add_child(main_view_container);
 
 	// Project list view.
 	{
@@ -1526,8 +1536,10 @@ ProjectManager::ProjectManager() {
 		_add_main_view(MAIN_VIEW_PROJECTS, TTRC("Projects"), Ref<Texture2D>(), local_projects_vb);
 
 		// Project list's top bar.
+		HBoxContainer *top_bar_hb = nullptr;
 		{
 			HBoxContainer *hb = memnew(HBoxContainer);
+			top_bar_hb = hb;
 			hb->set_h_size_flags(Control::SIZE_EXPAND_FILL);
 			local_projects_vb->add_child(hb);
 
@@ -1535,7 +1547,7 @@ ProjectManager::ProjectManager() {
 			create_btn->set_text(TTRC("Create"));
 			create_btn->set_shortcut(ED_SHORTCUT("project_manager/new_project", TTRC("New Project"), KeyModifierMask::CMD_OR_CTRL | Key::N));
 			create_btn->connect(SceneStringName(pressed), callable_mp(this, &ProjectManager::_new_project));
-			hb->add_child(create_btn);
+			// Added later as a floating button over the project list.
 
 			import_btn = memnew(Button);
 			import_btn->set_text(TTRC("Import"));
@@ -1582,6 +1594,13 @@ ProjectManager::ProjectManager() {
 			filter_option->add_item(TTRC("Name"));
 			filter_option->add_item(TTRC("Path"));
 			filter_option->add_item(TTRC("Tags"));
+
+			// Touch-friendly sizes for the top bar controls.
+			const Size2 touch_size = Size2(0, 48) * EDSCALE;
+			import_btn->set_custom_minimum_size(touch_size);
+			scan_btn->set_custom_minimum_size(touch_size);
+			search_box->set_custom_minimum_size(touch_size);
+			filter_option->set_custom_minimum_size(touch_size);
 		}
 
 		// Project list and its sidebar.
@@ -1602,6 +1621,17 @@ ProjectManager::ProjectManager() {
 			project_list->connect(ProjectList::SIGNAL_SELECTION_CHANGED, callable_mp(this, &ProjectManager::_update_project_buttons));
 			project_list->connect(ProjectList::SIGNAL_PROJECT_ASK_OPEN, callable_mp(this, &ProjectManager::_open_selected_projects_check_recovery_mode));
 			project_list->connect(ProjectList::SIGNAL_MENU_OPTION_SELECTED, callable_mp(this, &ProjectManager::_project_list_menu_option));
+
+			// Floating Create button, anchored to the bottom-right corner of the list.
+			Control *fab_layer = memnew(Control);
+			fab_layer->set_mouse_filter(Control::MOUSE_FILTER_IGNORE);
+			project_list_panel->add_child(fab_layer);
+
+			create_btn->set_custom_minimum_size(Size2(0, 56) * EDSCALE);
+			fab_layer->add_child(create_btn);
+			create_btn->set_anchors_and_offsets_preset(Control::PRESET_BOTTOM_RIGHT, Control::PRESET_MODE_MINSIZE, 16 * EDSCALE);
+			create_btn->set_h_grow_direction(Control::GROW_DIRECTION_BEGIN);
+			create_btn->set_v_grow_direction(Control::GROW_DIRECTION_BEGIN);
 
 			// Empty project list placeholder.
 			{
@@ -1725,12 +1755,18 @@ ProjectManager::ProjectManager() {
 			erase_missing_btn = memnew(Button);
 			erase_missing_btn->set_text(TTRC("Remove Missing"));
 			erase_missing_btn->connect(SceneStringName(pressed), callable_mp(this, &ProjectManager::_erase_missing_projects));
-			sidebar_buttons_containter->add_child(erase_missing_btn);
+			// Moved to the top bar since the sidebar is hidden.
+			erase_missing_btn->set_custom_minimum_size(Size2(0, 48) * EDSCALE);
+			top_bar_hb->add_child(erase_missing_btn);
 
 			donate_btn = memnew(Button);
 			donate_btn->set_text(TTRC("Donate"));
 			donate_btn->connect(SceneStringName(pressed), callable_mp(this, &ProjectManager::_open_donate_page));
 			project_list_sidebar->add_child(donate_btn);
+
+			// The actions now live on each project card and in its menu.
+			// The buttons are kept (hidden) so the selection/enable logic keeps working.
+			project_list_sidebar->hide();
 		}
 	}
 

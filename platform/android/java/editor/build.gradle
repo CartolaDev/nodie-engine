@@ -78,7 +78,7 @@ android {
 
     defaultConfig {
         // The 'applicationId' suffix allows to install Godot 3.x(v3) and 4.x(v4) on the same device
-        applicationId "org.godotengine.editor.v4"
+        applicationId "org.nodie.editor"
         versionCode generateVersionCode()
         versionName generateVersionName()
         minSdkVersion versions.minSdk

@@ -49,6 +49,8 @@ class ProjectListItemControl : public HBoxContainer {
 	VBoxContainer *main_vbox = nullptr;
 	TextureButton *favorite_button = nullptr;
 	Button *explore_button = nullptr;
+	Button *edit_button = nullptr;
+	Button *run_button = nullptr;
 
 	TextureRect *project_icon = nullptr;
 	Label *project_title = nullptr;
@@ -84,6 +86,8 @@ class ProjectListItemControl : public HBoxContainer {
 	void _update_favorite_button_focus_color();
 	void _favorite_button_pressed();
 	void _explore_button_pressed();
+	void _edit_button_pressed();
+	void _run_button_pressed();
 	void _request_menu();
 
 	ProjectList *get_list() const;
@@ -275,6 +279,7 @@ private:
 	void _list_item_input(const Ref<InputEvent> &p_ev, Control *p_hb);
 	void _on_favorite_pressed(Node *p_hb);
 	void _on_explore_pressed(const String &p_path);
+	void _on_card_action(Control *p_hb, int p_option);
 
 	void _open_menu(const Vector2 &p_at, Control *p_hb);
 	void _menu_option(int p_option);

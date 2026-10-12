@@ -48,6 +48,7 @@
 #include "scene/gui/flow_container.h"
 #include "scene/gui/label.h"
 #include "scene/gui/line_edit.h"
+#include "scene/gui/margin_container.h"
 #include "scene/gui/popup_menu.h"
 #include "scene/gui/progress_bar.h"
 #include "scene/gui/texture_button.h"
@@ -107,6 +108,8 @@ void ProjectListItemControl::_notification(int p_what) {
 				explore_button->set_button_icon(get_editor_theme_icon(SNAME("Load")));
 #endif
 			}
+			edit_button->set_button_icon(get_editor_theme_icon(SNAME("Edit")));
+			run_button->set_button_icon(get_editor_theme_icon(SNAME("Play")));
 			if (touch_menu_button) {
 				touch_menu_button->set_button_icon(get_editor_theme_icon(SNAME("GuiTabMenuHl")));
 			}
@@ -184,8 +187,15 @@ ProjectList *ProjectListItemControl::get_list() const {
 	if (!is_inside_tree()) {
 		return nullptr;
 	}
-	ProjectList *pl = Object::cast_to<ProjectList>(get_parent()->get_parent());
-	return pl;
+	Node *ancestor = get_parent();
+	while (ancestor) {
+		ProjectList *pl = Object::cast_to<ProjectList>(ancestor);
+		if (pl) {
+			return pl;
+		}
+		ancestor = ancestor->get_parent();
+	}
+	return nullptr;
 }
 
 void ProjectListItemControl::_accessibility_action_scroll_into_view(const Variant &p_data) {
@@ -240,6 +250,14 @@ void ProjectListItemControl::_favorite_button_pressed() {
 
 void ProjectListItemControl::_explore_button_pressed() {
 	emit_signal(SNAME("explore_pressed"));
+}
+
+void ProjectListItemControl::_edit_button_pressed() {
+	emit_signal(SNAME("edit_pressed"));
+}
+
+void ProjectListItemControl::_run_button_pressed() {
+	emit_signal(SNAME("run_pressed"));
 }
 
 void ProjectListItemControl::_request_menu() {
@@ -397,6 +415,10 @@ void ProjectListItemControl::set_is_favorite(bool p_favorite) {
 void ProjectListItemControl::set_is_missing(bool p_missing) {
 	project_is_missing = p_missing;
 
+	// A missing project can't be edited or run.
+	edit_button->set_disabled(p_missing);
+	run_button->set_disabled(p_missing);
+
 	if (project_is_missing) {
 		project_icon->set_modulate(Color(1, 1, 1, 0.5));
 
@@ -498,6 +520,8 @@ void ProjectListItemControl::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("favorite_pressed"));
 	ADD_SIGNAL(MethodInfo("explore_pressed"));
 	ADD_SIGNAL(MethodInfo("request_menu"));
+	ADD_SIGNAL(MethodInfo("edit_pressed"));
+	ADD_SIGNAL(MethodInfo("run_pressed"));
 }
 
 ProjectListItemControl::ProjectListItemControl() {
@@ -604,6 +628,27 @@ ProjectListItemControl::ProjectListItemControl() {
 		last_edited_info->set_modulate(Color(1, 1, 1, 0.5));
 		path_hb->add_child(last_edited_info);
 	}
+
+	// Quick actions, so editing and running a project is a single tap.
+	edit_button = memnew(Button);
+	edit_button->set_name("EditButton");
+	edit_button->set_theme_type_variation(SceneStringName(FlatButton));
+	edit_button->set_v_size_flags(SIZE_SHRINK_CENTER);
+	edit_button->set_custom_minimum_size(Size2(48, 48) * EDSCALE);
+	edit_button->set_tooltip_text(TTRC("Edit"));
+	edit_button->set_mouse_filter(MOUSE_FILTER_PASS);
+	edit_button->connect(SceneStringName(pressed), callable_mp(this, &ProjectListItemControl::_edit_button_pressed));
+	add_child(edit_button);
+
+	run_button = memnew(Button);
+	run_button->set_name("RunButton");
+	run_button->set_theme_type_variation(SceneStringName(FlatButton));
+	run_button->set_v_size_flags(SIZE_SHRINK_CENTER);
+	run_button->set_custom_minimum_size(Size2(48, 48) * EDSCALE);
+	run_button->set_tooltip_text(TTRC("Run"));
+	run_button->set_mouse_filter(MOUSE_FILTER_PASS);
+	run_button->connect(SceneStringName(pressed), callable_mp(this, &ProjectListItemControl::_run_button_pressed));
+	add_child(run_button);
 
 	if (DisplayServer::get_singleton()->is_touchscreen_available()) {
 		touch_menu_button = memnew(Button);
@@ -1229,6 +1274,8 @@ void ProjectList::_create_project_item_control(int p_index) {
 	hb->connect("explore_pressed", callable_mp(this, &ProjectList::_on_explore_pressed).bind(item.path));
 #endif
 	hb->connect("request_menu", callable_mp(this, &ProjectList::_open_menu).bind(hb));
+	hb->connect("edit_pressed", callable_mp(this, &ProjectList::_on_card_action).bind(hb, (int)MENU_EDIT));
+	hb->connect("run_pressed", callable_mp(this, &ProjectList::_on_card_action).bind(hb, (int)MENU_RUN));
 
 	if (item.project_title_index == -1) {
 		project_title_index_count++;
@@ -1362,6 +1409,11 @@ void ProjectList::_on_favorite_pressed(Node *p_hb) {
 	}
 
 	update_dock_menu();
+}
+
+void ProjectList::_on_card_action(Control *p_hb, int p_option) {
+	select_project(p_hb->get_index());
+	emit_signal(SIGNAL_MENU_OPTION_SELECTED, p_option);
 }
 
 void ProjectList::_on_explore_pressed(const String &p_path) {
@@ -1721,9 +1773,15 @@ void ProjectList::_bind_methods() {
 ProjectList::ProjectList() {
 	set_follow_focus(true);
 
+	// Bottom margin keeps the floating Create button from covering the last project.
+	MarginContainer *list_margin = memnew(MarginContainer);
+	list_margin->set_h_size_flags(Control::SIZE_EXPAND_FILL);
+	list_margin->add_theme_constant_override("margin_bottom", 80 * EDSCALE);
+	add_child(list_margin);
+
 	project_list_vbox = memnew(VBoxContainer);
 	project_list_vbox->set_h_size_flags(Control::SIZE_EXPAND_FILL);
-	add_child(project_list_vbox);
+	list_margin->add_child(project_list_vbox);
 
 	_config_path = EditorPaths::get_singleton()->get_data_dir().path_join("projects.cfg");
 	_migrate_config();
