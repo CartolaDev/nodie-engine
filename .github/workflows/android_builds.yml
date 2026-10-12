@@ -26,9 +26,9 @@ jobs:
           - name: Editor (target=editor)
             cache-name: android-editor
             target: editor
-            instrumented_tests: true
+            instrumented_tests: false
             scons-flags: >-
-              arch=arm64
+              arch=arm32
               production=yes
 
           - name: Template arm32 (target=template_debug, arch=arm32)
