@@ -1661,18 +1661,22 @@ void ThemeModern::populate_editor_styles(const Ref<EditorTheme> &p_theme, Editor
 			const auto add_tonal_button = [&](const StringName &p_variation, const Color &p_tint) {
 				Ref<StyleBoxFlat> tonal_normal = p_config.base_style->duplicate();
 				tonal_normal->set_bg_color(p_tint * Color(1, 1, 1, 0.16));
-				tonal_normal->set_border_width_all(0);
+				tonal_normal->set_border_width_all(int(2 * EDSCALE));
+				tonal_normal->set_border_color(p_tint * Color(1, 1, 1, 0.55));
 				tonal_normal->set_corner_radius_all(int(12 * EDSCALE));
 				tonal_normal->set_content_margin_all(int(8 * EDSCALE));
 
 				Ref<StyleBoxFlat> tonal_hover = tonal_normal->duplicate();
 				tonal_hover->set_bg_color(p_tint * Color(1, 1, 1, 0.28));
+				tonal_hover->set_border_color(p_tint * Color(1, 1, 1, 0.8));
 
 				Ref<StyleBoxFlat> tonal_pressed = tonal_normal->duplicate();
 				tonal_pressed->set_bg_color(p_tint * Color(1, 1, 1, 0.4));
+				tonal_pressed->set_border_color(p_tint);
 
 				Ref<StyleBoxFlat> tonal_disabled = tonal_normal->duplicate();
 				tonal_disabled->set_bg_color(Color(1, 1, 1, 0.04));
+				tonal_disabled->set_border_color(Color(1, 1, 1, 0.1));
 
 				p_theme->set_type_variation(p_variation, "Button");
 				p_theme->set_stylebox(CoreStringName(normal), p_variation, tonal_normal);

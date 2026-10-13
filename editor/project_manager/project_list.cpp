@@ -637,6 +637,8 @@ ProjectListItemControl::ProjectListItemControl() {
 	edit_button = memnew(Button);
 	edit_button->set_name("EditButton");
 	edit_button->set_theme_type_variation("CardEditButton");
+	edit_button->set_icon_alignment(HORIZONTAL_ALIGNMENT_CENTER);
+	edit_button->set_vertical_icon_alignment(VERTICAL_ALIGNMENT_CENTER);
 	edit_button->set_v_size_flags(SIZE_SHRINK_CENTER);
 	edit_button->set_custom_minimum_size(Size2(48, 48) * EDSCALE);
 	edit_button->set_tooltip_text(TTRC("Edit"));
@@ -647,6 +649,8 @@ ProjectListItemControl::ProjectListItemControl() {
 	run_button = memnew(Button);
 	run_button->set_name("RunButton");
 	run_button->set_theme_type_variation("CardRunButton");
+	run_button->set_icon_alignment(HORIZONTAL_ALIGNMENT_CENTER);
+	run_button->set_vertical_icon_alignment(VERTICAL_ALIGNMENT_CENTER);
 	run_button->set_v_size_flags(SIZE_SHRINK_CENTER);
 	run_button->set_custom_minimum_size(Size2(48, 48) * EDSCALE);
 	run_button->set_tooltip_text(TTRC("Run"));
@@ -1781,11 +1785,14 @@ ProjectList::ProjectList() {
 	MarginContainer *list_margin = memnew(MarginContainer);
 	list_margin->set_h_size_flags(Control::SIZE_EXPAND_FILL);
 	list_margin->add_theme_constant_override("margin_bottom", 80 * EDSCALE);
+	list_margin->add_theme_constant_override("margin_top", int(12 * EDSCALE));
+	list_margin->add_theme_constant_override("margin_left", int(12 * EDSCALE));
+	list_margin->add_theme_constant_override("margin_right", int(12 * EDSCALE));
 	add_child(list_margin);
 
 	project_list_vbox = memnew(VBoxContainer);
 	project_list_vbox->set_h_size_flags(Control::SIZE_EXPAND_FILL);
-	project_list_vbox->add_theme_constant_override("separation", int(8 * EDSCALE));
+	project_list_vbox->add_theme_constant_override("separation", int(12 * EDSCALE));
 	list_margin->add_child(project_list_vbox);
 
 	_config_path = EditorPaths::get_singleton()->get_data_dir().path_join("projects.cfg");

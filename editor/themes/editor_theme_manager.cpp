@@ -356,9 +356,9 @@ EditorThemeManager::ThemeConfiguration EditorThemeManager::_create_theme_config(
 				preset_accent_color = Color(0.15, 0.55, 0.82);
 				preset_base_color = Color(0.89, 0.86, 0.79);
 				preset_contrast = light_contrast;
-			} else { // Default
-				preset_accent_color = Color(0.337, 0.62, 1.0);
-				preset_base_color = Color(0.161, 0.161, 0.161);
+			} else { // Default (Nodie purple).
+				preset_accent_color = Color::html("8109ff");
+				preset_base_color = Color::html("090017");
 			}
 
 			config.accent_color = preset_accent_color;
