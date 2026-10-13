@@ -32,6 +32,7 @@
 
 #include "core/io/config_file.h"
 #include "scene/gui/box_container.h"
+#include "scene/gui/panel_container.h"
 #include "scene/gui/scroll_container.h"
 
 class AcceptDialog;
@@ -43,10 +44,36 @@ class ProjectList;
 class TextureButton;
 class TextureRect;
 
+// Big card for the most recently edited project (preview, name, last edit and quick actions).
+class ProjectHeroCard : public PanelContainer {
+	GDCLASS(ProjectHeroCard, PanelContainer)
+
+	TextureRect *preview = nullptr;
+	TextureRect *shade = nullptr;
+	Label *header_label = nullptr;
+	Label *name_label = nullptr;
+	Label *date_label = nullptr;
+	Button *edit_button = nullptr;
+	Button *info_button = nullptr;
+
+	void _edit_pressed();
+	void _info_pressed();
+
+protected:
+	void _notification(int p_what);
+	static void _bind_methods();
+
+public:
+	void set_project(const String &p_name, const String &p_date, const String &p_path, const Ref<Texture2D> &p_fallback_icon);
+
+	ProjectHeroCard();
+};
+
 class ProjectListItemControl : public HBoxContainer {
 	GDCLASS(ProjectListItemControl, HBoxContainer)
 
 	VBoxContainer *main_vbox = nullptr;
+	HBoxContainer *path_hb = nullptr;
 	TextureButton *favorite_button = nullptr;
 	Button *explore_button = nullptr;
 	Button *edit_button = nullptr;
@@ -125,6 +152,10 @@ public:
 	void set_is_grayed(bool p_grayed);
 	void set_project_title_index(int p_title_index);
 	void set_project_title_autowrap();
+
+	// Compact cards hide path, version and date (the big card shows the details).
+	void set_compact(bool p_compact);
+	Ref<Texture2D> get_project_icon() const;
 
 	void resize_project_title();
 
@@ -262,6 +293,8 @@ private:
 
 	void _migrate_config();
 
+	bool hero_enabled = false;
+
 	static Item load_project_data(const String &p_property_key, bool p_favorite);
 	void _update_icons_async();
 	void _load_project_icon(int p_index);
@@ -303,6 +336,7 @@ protected:
 
 public:
 	static inline const char *SIGNAL_LIST_CHANGED = "list_changed";
+	static inline const char *SIGNAL_LATEST_CHANGED = "latest_project_changed";
 	static inline const char *SIGNAL_SELECTION_CHANGED = "selection_changed";
 	static inline const char *SIGNAL_PROJECT_ASK_OPEN = "project_ask_open";
 	static inline const char *SIGNAL_MENU_OPTION_SELECTED = "menu_option_selected";
@@ -319,6 +353,13 @@ public:
 	void update_project_list();
 	void sort_projects();
 	int get_project_count() const;
+
+	// Big "recent project" card support.
+	int get_latest_project_index() const;
+	const Item &get_project_item(int p_index) const;
+	void set_hero_enabled(bool p_enabled);
+	void request_project_action(int p_index, int p_option);
+	void request_project_menu(int p_index, const Vector2 &p_screen_position);
 
 	void find_projects(const String &p_path);
 	void find_projects_multiple(const PackedStringArray &p_paths);

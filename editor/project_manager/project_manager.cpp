@@ -409,6 +409,40 @@ void ProjectManager::_open_asset_library_confirmed() {
 	_select_main_view(MAIN_VIEW_ASSETLIB);
 }
 
+void ProjectManager::_update_hero_card() {
+	if (!hero_card || !project_list) {
+		return;
+	}
+
+	const int index = project_list->get_latest_project_index();
+	if (index == -1) {
+		hero_card->hide();
+		return;
+	}
+
+	const ProjectList::Item &item = project_list->get_project_item(index);
+	Ref<Texture2D> icon;
+	if (item.control) {
+		icon = item.control->get_project_icon();
+	}
+	hero_card->set_project(item.project_name, item.get_last_edited_string(), item.path, icon);
+	hero_card->show();
+}
+
+void ProjectManager::_hero_edit_pressed() {
+	const int index = project_list->get_latest_project_index();
+	if (index != -1) {
+		project_list->request_project_action(index, ProjectList::MENU_EDIT);
+	}
+}
+
+void ProjectManager::_hero_info_pressed(const Vector2 &p_screen_position) {
+	const int index = project_list->get_latest_project_index();
+	if (index != -1) {
+		project_list->request_project_menu(index, p_screen_position);
+	}
+}
+
 void ProjectManager::_project_list_menu_option(int p_option) {
 	switch (p_option) {
 		case ProjectList::MENU_EDIT:
@@ -1638,9 +1672,18 @@ ProjectManager::ProjectManager() {
 			HBoxContainer *project_list_hbox = memnew(HBoxContainer);
 			local_projects_vb->add_child(project_list_hbox);
 			project_list_hbox->set_v_size_flags(Control::SIZE_EXPAND_FILL);
+			project_list_hbox->add_theme_constant_override("separation", int(12 * EDSCALE));
+
+			// Big card with the most recently edited project, on the left.
+			hero_card = memnew(ProjectHeroCard);
+			hero_card->set_h_size_flags(Control::SIZE_EXPAND_FILL);
+			hero_card->set_stretch_ratio(0.9);
+			hero_card->hide();
+			project_list_hbox->add_child(hero_card);
 
 			project_list_panel = memnew(PanelContainer);
 			project_list_panel->set_h_size_flags(Control::SIZE_EXPAND_FILL);
+			project_list_panel->set_stretch_ratio(1.1);
 			project_list_hbox->add_child(project_list_panel);
 
 			project_list = memnew(ProjectList);
@@ -1651,6 +1694,12 @@ ProjectManager::ProjectManager() {
 			project_list->connect(ProjectList::SIGNAL_SELECTION_CHANGED, callable_mp(this, &ProjectManager::_update_project_buttons));
 			project_list->connect(ProjectList::SIGNAL_PROJECT_ASK_OPEN, callable_mp(this, &ProjectManager::_open_selected_projects_check_recovery_mode));
 			project_list->connect(ProjectList::SIGNAL_MENU_OPTION_SELECTED, callable_mp(this, &ProjectManager::_project_list_menu_option));
+
+			project_list->connect(ProjectList::SIGNAL_LATEST_CHANGED, callable_mp(this, &ProjectManager::_update_hero_card));
+			project_list->connect(ProjectList::SIGNAL_LIST_CHANGED, callable_mp(this, &ProjectManager::_update_hero_card));
+			hero_card->connect("edit_pressed", callable_mp(this, &ProjectManager::_hero_edit_pressed));
+			hero_card->connect("info_pressed", callable_mp(this, &ProjectManager::_hero_info_pressed));
+			project_list->set_hero_enabled(true);
 
 			// Floating Create button, anchored to the bottom-right corner of the list.
 			Control *fab_layer = memnew(Control);

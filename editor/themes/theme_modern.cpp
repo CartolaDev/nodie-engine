@@ -1695,6 +1695,19 @@ void ThemeModern::populate_editor_styles(const Ref<EditorTheme> &p_theme, Editor
 			add_tonal_button(StringName("CardRunButton"), p_config.success_color);
 		}
 
+		// Big card for the most recent project.
+		{
+			Ref<StyleBoxFlat> hero_panel = p_config.base_style->duplicate();
+			hero_panel->set_bg_color(p_config.surface_base_color);
+			hero_panel->set_border_width_all(int(2 * EDSCALE));
+			hero_panel->set_border_color(p_config.accent_color * Color(1, 1, 1, 0.7));
+			hero_panel->set_corner_radius_all(int(20 * EDSCALE));
+			hero_panel->set_content_margin_all(int(14 * EDSCALE));
+
+			p_theme->set_type_variation("ProjectHeroCard", "PanelContainer");
+			p_theme->set_stylebox(SceneStringName(panel), "ProjectHeroCard", hero_panel);
+		}
+
 		// Floating action button ("Create").
 		{
 			const Color on_accent = p_config.accent_color.get_luminance() > 0.5 ? Color(0, 0, 0, 0.9) : Color(1, 1, 1, 0.95);

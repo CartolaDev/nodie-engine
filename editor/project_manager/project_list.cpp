@@ -33,6 +33,8 @@
 #include "core/config/project_settings.h"
 #include "core/input/input.h"
 #include "core/io/dir_access.h"
+#include "core/io/file_access.h"
+#include "core/io/image.h"
 #include "core/object/callable_mp.h"
 #include "core/os/os.h"
 #include "core/os/time.h"
@@ -49,11 +51,15 @@
 #include "scene/gui/label.h"
 #include "scene/gui/line_edit.h"
 #include "scene/gui/margin_container.h"
+#include "scene/gui/panel_container.h"
 #include "scene/gui/popup_menu.h"
 #include "scene/gui/progress_bar.h"
 #include "scene/gui/texture_button.h"
 #include "scene/gui/texture_rect.h"
+#include "scene/resources/gradient.h"
+#include "scene/resources/gradient_texture.h"
 #include "scene/resources/image_texture.h"
+#include "scene/resources/style_box.h"
 #include "servers/display/accessibility_server.h"
 #include "servers/display/display_server.h"
 
@@ -398,6 +404,16 @@ bool ProjectListItemControl::should_load_project_icon() const {
 	return icon_needs_reload;
 }
 
+void ProjectListItemControl::set_compact(bool p_compact) {
+	if (path_hb) {
+		path_hb->set_visible(!p_compact);
+	}
+}
+
+Ref<Texture2D> ProjectListItemControl::get_project_icon() const {
+	return project_icon ? project_icon->get_texture() : Ref<Texture2D>();
+}
+
 void ProjectListItemControl::set_selected(bool p_selected, bool p_hide_focus) {
 	is_selected = p_selected;
 	is_focus_hidden = is_selected && p_hide_focus;
@@ -532,8 +548,13 @@ ProjectListItemControl::ProjectListItemControl() {
 	set_focus_mode(FocusMode::FOCUS_ALL);
 	set_auto_translate_mode(AUTO_TRANSLATE_MODE_DISABLED);
 
+	// Room between the card border and its content.
+	set_custom_minimum_size(Size2(0, 88) * EDSCALE);
+
 	// Left spacer.
-	add_child(memnew(Control));
+	Control *left_spacer = memnew(Control);
+	left_spacer->set_custom_minimum_size(Size2(14, 0) * EDSCALE);
+	add_child(left_spacer);
 
 	VBoxContainer *favorite_box = memnew(VBoxContainer);
 	favorite_box->set_alignment(BoxContainer::ALIGNMENT_CENTER);
@@ -557,6 +578,7 @@ ProjectListItemControl::ProjectListItemControl() {
 
 	main_vbox = memnew(VBoxContainer);
 	main_vbox->set_h_size_flags(Control::SIZE_EXPAND_FILL);
+	main_vbox->set_alignment(BoxContainer::ALIGNMENT_CENTER);
 	add_child(main_vbox);
 
 	Control *ec = memnew(Control);
@@ -583,7 +605,7 @@ ProjectListItemControl::ProjectListItemControl() {
 
 	// Bottom half, containing the path and view folder button.
 	{
-		HBoxContainer *path_hb = memnew(HBoxContainer);
+		path_hb = memnew(HBoxContainer);
 		path_hb->set_h_size_flags(Control::SIZE_EXPAND_FILL);
 		main_vbox->add_child(path_hb);
 
@@ -668,7 +690,155 @@ ProjectListItemControl::ProjectListItemControl() {
 	}
 
 	// Right spacer.
-	add_child(memnew(Control));
+	Control *right_spacer = memnew(Control);
+	right_spacer->set_custom_minimum_size(Size2(12, 0) * EDSCALE);
+	add_child(right_spacer);
+}
+
+// ProjectHeroCard.
+
+void ProjectHeroCard::_edit_pressed() {
+	emit_signal(SNAME("edit_pressed"));
+}
+
+void ProjectHeroCard::_info_pressed() {
+	emit_signal(SNAME("info_pressed"), info_button->get_screen_position());
+}
+
+void ProjectHeroCard::set_project(const String &p_name, const String &p_date, const String &p_path, const Ref<Texture2D> &p_fallback_icon) {
+	name_label->set_text(p_name);
+	date_label->set_text(p_date);
+
+	// The game saves a small preview on exit (see SceneTree), always overwriting the previous one.
+	Ref<Texture2D> texture;
+	const String preview_path = p_path.path_join(".godot").path_join("nodie_preview.png");
+	if (FileAccess::exists(preview_path)) {
+		Ref<Image> img;
+		img.instantiate();
+		if (img->load(preview_path) == OK) {
+			texture = ImageTexture::create_from_image(img);
+		}
+	}
+
+	if (texture.is_valid()) {
+		preview->set_stretch_mode(TextureRect::STRETCH_KEEP_ASPECT_COVERED);
+	} else {
+		texture = p_fallback_icon;
+		preview->set_stretch_mode(TextureRect::STRETCH_KEEP_ASPECT_CENTERED);
+	}
+	preview->set_texture(texture);
+}
+
+void ProjectHeroCard::_notification(int p_what) {
+	switch (p_what) {
+		case NOTIFICATION_THEME_CHANGED: {
+			edit_button->set_button_icon(get_editor_theme_icon(SNAME("Edit")));
+			info_button->set_button_icon(get_editor_theme_icon(SNAME("GuiTabMenuHl")));
+
+			header_label->add_theme_font_override(SceneStringName(font), get_theme_font(SNAME("bold"), EditorStringName(EditorFonts)));
+
+			// Bottom shade, so the name and date stay readable over any preview.
+			const Color accent = get_theme_color(SNAME("accent_color"), EditorStringName(Editor));
+			Ref<Gradient> gradient;
+			gradient.instantiate();
+			gradient->set_color(0, Color(0, 0, 0, 0));
+			gradient->set_color(1, accent.darkened(0.45) * Color(1, 1, 1, 0.92));
+
+			Ref<GradientTexture2D> shade_texture;
+			shade_texture.instantiate();
+			shade_texture->set_gradient(gradient);
+			shade_texture->set_fill_from(Vector2(0, 0.45));
+			shade_texture->set_fill_to(Vector2(0, 1));
+			shade_texture->set_width(8);
+			shade_texture->set_height(128);
+			shade->set_texture(shade_texture);
+		} break;
+	}
+}
+
+void ProjectHeroCard::_bind_methods() {
+	ADD_SIGNAL(MethodInfo("edit_pressed"));
+	ADD_SIGNAL(MethodInfo("info_pressed", PropertyInfo(Variant::VECTOR2, "screen_position")));
+}
+
+ProjectHeroCard::ProjectHeroCard() {
+	set_theme_type_variation("ProjectHeroCard");
+
+	VBoxContainer *vb = memnew(VBoxContainer);
+	vb->add_theme_constant_override("separation", int(12 * EDSCALE));
+	add_child(vb);
+
+	header_label = memnew(Label);
+	header_label->set_text(TTRC("Recent project"));
+	header_label->add_theme_font_size_override(SceneStringName(font_size), int(26 * EDSCALE));
+	vb->add_child(header_label);
+
+	// Preview with the name and date over it.
+	PanelContainer *stack = memnew(PanelContainer);
+	stack->set_v_size_flags(SIZE_EXPAND_FILL);
+	stack->set_custom_minimum_size(Size2(0, 150) * EDSCALE);
+	stack->add_theme_style_override(SceneStringName(panel), memnew(StyleBoxEmpty));
+	vb->add_child(stack);
+
+	preview = memnew(TextureRect);
+	preview->set_expand_mode(TextureRect::EXPAND_IGNORE_SIZE);
+	preview->set_stretch_mode(TextureRect::STRETCH_KEEP_ASPECT_COVERED);
+	stack->add_child(preview);
+
+	shade = memnew(TextureRect);
+	shade->set_expand_mode(TextureRect::EXPAND_IGNORE_SIZE);
+	shade->set_stretch_mode(TextureRect::STRETCH_SCALE);
+	shade->set_mouse_filter(MOUSE_FILTER_IGNORE);
+	stack->add_child(shade);
+
+	MarginContainer *text_margin = memnew(MarginContainer);
+	text_margin->set_mouse_filter(MOUSE_FILTER_IGNORE);
+	text_margin->add_theme_constant_override("margin_left", int(14 * EDSCALE));
+	text_margin->add_theme_constant_override("margin_right", int(14 * EDSCALE));
+	text_margin->add_theme_constant_override("margin_top", int(10 * EDSCALE));
+	text_margin->add_theme_constant_override("margin_bottom", int(10 * EDSCALE));
+	stack->add_child(text_margin);
+
+	VBoxContainer *text_vb = memnew(VBoxContainer);
+	text_vb->set_alignment(BoxContainer::ALIGNMENT_END);
+	text_vb->set_mouse_filter(MOUSE_FILTER_IGNORE);
+	text_margin->add_child(text_vb);
+
+	name_label = memnew(Label);
+	name_label->set_auto_translate_mode(AUTO_TRANSLATE_MODE_DISABLED);
+	name_label->set_text_overrun_behavior(TextServer::OVERRUN_TRIM_ELLIPSIS);
+	name_label->add_theme_font_size_override(SceneStringName(font_size), int(22 * EDSCALE));
+	name_label->add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8));
+	name_label->add_theme_constant_override("outline_size", int(4 * EDSCALE));
+	text_vb->add_child(name_label);
+
+	date_label = memnew(Label);
+	date_label->set_auto_translate_mode(AUTO_TRANSLATE_MODE_DISABLED);
+	date_label->add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8));
+	date_label->add_theme_constant_override("outline_size", int(4 * EDSCALE));
+	text_vb->add_child(date_label);
+
+	// Quick actions.
+	HBoxContainer *actions = memnew(HBoxContainer);
+	actions->add_theme_constant_override("separation", int(10 * EDSCALE));
+	vb->add_child(actions);
+
+	edit_button = memnew(Button);
+	edit_button->set_text(TTRC("Edit"));
+	edit_button->set_theme_type_variation("FabButton");
+	edit_button->set_h_size_flags(SIZE_EXPAND_FILL);
+	edit_button->set_custom_minimum_size(Size2(0, 52) * EDSCALE);
+	edit_button->connect(SceneStringName(pressed), callable_mp(this, &ProjectHeroCard::_edit_pressed));
+	actions->add_child(edit_button);
+
+	info_button = memnew(Button);
+	info_button->set_theme_type_variation("CardEditButton");
+	info_button->set_icon_alignment(HORIZONTAL_ALIGNMENT_CENTER);
+	info_button->set_vertical_icon_alignment(VERTICAL_ALIGNMENT_CENTER);
+	info_button->set_custom_minimum_size(Size2(52, 52) * EDSCALE);
+	info_button->set_tooltip_text(TTRC("More options"));
+	info_button->connect(SceneStringName(pressed), callable_mp(this, &ProjectHeroCard::_info_pressed));
+	actions->add_child(info_button);
 }
 
 struct ProjectListComparator {
@@ -978,6 +1148,10 @@ void ProjectList::_load_project_icon(int p_index) {
 	}
 
 	item.control->set_project_icon(icon);
+
+	if (hero_enabled && p_index == get_latest_project_index()) {
+		emit_signal(SNAME(SIGNAL_LATEST_CHANGED));
+	}
 }
 
 // Project list updates.
@@ -1047,6 +1221,9 @@ void ProjectList::sort_projects() {
 		}
 	}
 
+	// The project shown on the big card is not repeated in the list.
+	const int latest_index = hero_enabled ? get_latest_project_index() : -1;
+
 	for (int i = 0; i < _projects.size(); ++i) {
 		Item &item = _projects.write[i];
 
@@ -1073,13 +1250,15 @@ void ProjectList::sort_projects() {
 			item_visible = !missing_tags && (search_term.is_empty() || item.project_name.containsn(search_term) || search_path.containsn(search_term));
 		}
 
-		item.control->set_visible(item_visible);
+		item.control->set_visible(item_visible && i != latest_index);
 	}
 
 	for (int i = 0; i < _projects.size(); ++i) {
 		Item &item = _projects.write[i];
 		item.control->get_parent()->move_child(item.control, i);
 	}
+
+	emit_signal(SNAME(SIGNAL_LATEST_CHANGED));
 
 	// Rewind the coroutine because order of projects changed
 	_update_icons_async();
@@ -1274,6 +1453,7 @@ void ProjectList::_create_project_item_control(int p_index) {
 	hb->set_is_favorite(item.favorite);
 	hb->set_is_missing(item.missing);
 	hb->set_is_grayed(item.grayed);
+	hb->set_compact(hero_enabled);
 
 	hb->connect(SceneStringName(gui_input), callable_mp(this, &ProjectList::_list_item_input).bind(hb));
 	hb->connect("favorite_pressed", callable_mp(this, &ProjectList::_on_favorite_pressed).bind(hb));
@@ -1452,7 +1632,9 @@ void ProjectList::_open_menu(const Vector2 &p_at, Control *p_hb) {
 		project_context_menu->connect(SceneStringName(id_pressed), callable_mp(this, &ProjectList::_menu_option));
 		_update_menu_icons();
 	}
-	clicked_project.control->grab_focus(true);
+	if (clicked_project.control->is_visible_in_tree()) {
+		clicked_project.control->grab_focus(true);
+	}
 
 	for (int id : Vector<int>{
 				 MENU_EDIT,
@@ -1471,6 +1653,52 @@ void ProjectList::_open_menu(const Vector2 &p_at, Control *p_hb) {
 	project_context_menu->set_position(p_hb->get_screen_position() + p_at);
 	project_context_menu->reset_size();
 	project_context_menu->popup();
+}
+
+int ProjectList::get_latest_project_index() const {
+	int latest = -1;
+	uint64_t latest_time = 0;
+	for (int i = 0; i < _projects.size(); i++) {
+		const Item &item = _projects[i];
+		if (item.missing) {
+			continue;
+		}
+		if (latest == -1 || item.last_edited > latest_time) {
+			latest = i;
+			latest_time = item.last_edited;
+		}
+	}
+	return latest;
+}
+
+const ProjectList::Item &ProjectList::get_project_item(int p_index) const {
+	return _projects[p_index];
+}
+
+void ProjectList::set_hero_enabled(bool p_enabled) {
+	hero_enabled = p_enabled;
+	if (_projects.is_empty()) {
+		return;
+	}
+	for (int i = 0; i < _projects.size(); i++) {
+		if (_projects[i].control) {
+			_projects[i].control->set_compact(p_enabled);
+		}
+	}
+	sort_projects();
+}
+
+void ProjectList::request_project_action(int p_index, int p_option) {
+	ERR_FAIL_INDEX(p_index, _projects.size());
+	select_project(p_index);
+	emit_signal(SIGNAL_MENU_OPTION_SELECTED, p_option);
+}
+
+void ProjectList::request_project_menu(int p_index, const Vector2 &p_screen_position) {
+	ERR_FAIL_INDEX(p_index, _projects.size());
+	select_project(p_index);
+	Control *control = _projects[p_index].control;
+	_open_menu(p_screen_position - control->get_screen_position(), control);
 }
 
 void ProjectList::_menu_option(int p_option) {
@@ -1776,6 +2004,7 @@ void ProjectList::_bind_methods() {
 	ADD_SIGNAL(MethodInfo(SIGNAL_SELECTION_CHANGED));
 	ADD_SIGNAL(MethodInfo(SIGNAL_PROJECT_ASK_OPEN));
 	ADD_SIGNAL(MethodInfo(SIGNAL_MENU_OPTION_SELECTED));
+	ADD_SIGNAL(MethodInfo(SIGNAL_LATEST_CHANGED));
 }
 
 ProjectList::ProjectList() {

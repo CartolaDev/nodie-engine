@@ -45,6 +45,7 @@ class OptionButton;
 class PanelContainer;
 class PopupMenu;
 class ProjectDialog;
+class ProjectHeroCard;
 class ProjectList;
 class QuickSettingsDialog;
 class RichTextLabel;
@@ -151,6 +152,11 @@ class ProjectManager : public Control {
 	Label *sort_label = nullptr;
 	OptionButton *filter_option = nullptr;
 	PanelContainer *project_list_panel = nullptr;
+	ProjectHeroCard *hero_card = nullptr;
+
+	void _update_hero_card();
+	void _hero_edit_pressed();
+	void _hero_info_pressed(const Vector2 &p_screen_position);
 
 	Button *create_btn = nullptr;
 	Button *import_btn = nullptr;

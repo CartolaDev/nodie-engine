@@ -34,6 +34,9 @@ STATIC_ASSERT_INCOMPLETE_TYPE(class, RenderingServer);
 
 #include "core/config/engine.h"
 #include "core/config/project_settings.h"
+#include "core/debugger/engine_debugger.h"
+#include "core/io/dir_access.h"
+#include "core/io/image.h"
 #include "core/input/input.h"
 #include "core/io/image_loader.h"
 #include "core/io/resource_loader.h"
@@ -685,7 +688,54 @@ void SceneTree::iteration_end() {
 	}
 }
 
+// Nodie: saves a small preview of the running game, so the project manager can show it.
+// Only for debug runs started by the editor. The file is always overwritten, so old previews vanish.
+static void _nodie_save_preview(Window *p_root, bool p_force) {
+#ifdef DEBUG_ENABLED
+	static bool quit_preview_saved = false;
+	if (!p_force) {
+		if (quit_preview_saved) {
+			return;
+		}
+		quit_preview_saved = true;
+	}
+
+	if (!p_root || Engine::get_singleton()->is_editor_hint() || !EngineDebugger::is_active()) {
+		return;
+	}
+	if (DisplayServer::get_singleton()->get_name() == "headless") {
+		return;
+	}
+
+	Ref<ViewportTexture> viewport_texture = p_root->get_texture();
+	if (viewport_texture.is_null()) {
+		return;
+	}
+	Ref<Image> img = viewport_texture->get_image();
+	if (img.is_null() || img->is_empty() || img->is_compressed()) {
+		return;
+	}
+
+	const int target_width = 640;
+	if (img->get_width() > target_width) {
+		img->resize(target_width, MAX(1, img->get_height() * target_width / img->get_width()), Image::INTERPOLATE_BILINEAR);
+	}
+	if (img->get_format() != Image::FORMAT_RGB8 && img->get_format() != Image::FORMAT_RGBA8) {
+		img->convert(Image::FORMAT_RGBA8);
+	}
+
+	const String dir = ProjectSettings::get_singleton()->globalize_path("res://.godot");
+	if (DirAccess::dir_exists_absolute(dir)) {
+		img->save_png(dir.path_join("nodie_preview.png"));
+	}
+#endif // DEBUG_ENABLED
+}
+
 bool SceneTree::process(double p_time) {
+	if (_quit) {
+		_nodie_save_preview(get_root(), false);
+	}
+
 	// First pass of scene tree fixed timestep interpolation.
 	if (get_scene_tree_fti().is_enabled()) {
 		// Special, we need to ensure RenderingServer is up to date
@@ -785,6 +835,10 @@ bool SceneTree::process(double p_time) {
 
 	if (_physics_interpolation_enabled) {
 		RenderingServer::get_singleton()->pre_draw(true);
+	}
+
+	if (_quit) {
+		_nodie_save_preview(get_root(), false);
 	}
 
 	return _quit;
@@ -912,6 +966,10 @@ void SceneTree::_main_window_focus_in() {
 void SceneTree::_notification(int p_notification) {
 	if (!get_root()) {
 		return;
+	}
+
+	if (p_notification == NOTIFICATION_APPLICATION_PAUSED) {
+		_nodie_save_preview(get_root(), true);
 	}
 
 	switch (p_notification) {
