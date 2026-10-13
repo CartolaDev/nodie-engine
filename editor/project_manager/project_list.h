@@ -44,7 +44,7 @@ class ProjectList;
 class TextureButton;
 class TextureRect;
 
-// Big card for the most recently edited project (preview, name, last edit and quick actions).
+// Big card for the most recently edited project (preview, name, details and quick actions).
 class ProjectHeroCard : public PanelContainer {
 	GDCLASS(ProjectHeroCard, PanelContainer)
 
@@ -53,6 +53,9 @@ class ProjectHeroCard : public PanelContainer {
 	Label *header_label = nullptr;
 	Label *name_label = nullptr;
 	Label *date_label = nullptr;
+	Label *path_label = nullptr;
+	Label *version_label = nullptr;
+	HFlowContainer *tag_container = nullptr;
 	Button *edit_button = nullptr;
 	Button *info_button = nullptr;
 
@@ -64,7 +67,7 @@ protected:
 	static void _bind_methods();
 
 public:
-	void set_project(const String &p_name, const String &p_date, const String &p_path, const Ref<Texture2D> &p_fallback_icon);
+	void set_project(const String &p_name, const String &p_date, const String &p_path, const String &p_version, const PackedStringArray &p_tags, ProjectList *p_parent_list);
 
 	ProjectHeroCard();
 };
@@ -167,6 +170,7 @@ class ProjectList : public ScrollContainer {
 
 	friend class ProjectManager;
 	friend class ProjectListItemControl;
+	friend class ProjectHeroCard;
 
 public:
 	enum FilterOption {

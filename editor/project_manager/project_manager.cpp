@@ -129,6 +129,12 @@ void ProjectManager::_notification(int p_what) {
 			set_process_shortcut_input(is_visible_in_tree());
 		} break;
 
+		case NOTIFICATION_APPLICATION_FOCUS_IN:
+		case NOTIFICATION_APPLICATION_RESUMED: {
+			// Coming back from a game run: pick up the new preview.
+			_update_hero_card();
+		} break;
+
 		case NOTIFICATION_WM_CLOSE_REQUEST: {
 			_dim_window();
 		} break;
@@ -421,11 +427,7 @@ void ProjectManager::_update_hero_card() {
 	}
 
 	const ProjectList::Item &item = project_list->get_project_item(index);
-	Ref<Texture2D> icon;
-	if (item.control) {
-		icon = item.control->get_project_icon();
-	}
-	hero_card->set_project(item.project_name, item.get_last_edited_string(), item.path, icon);
+	hero_card->set_project(item.project_name, item.get_last_edited_string(), item.path, item.project_version, item.tags, project_list);
 	hero_card->show();
 }
 

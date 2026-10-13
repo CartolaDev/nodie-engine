@@ -697,6 +697,22 @@ ProjectListItemControl::ProjectListItemControl() {
 
 // ProjectHeroCard.
 
+static Ref<GradientTexture2D> _make_vertical_gradient(const Color &p_top, const Color &p_bottom, float p_from_y) {
+	Ref<Gradient> gradient;
+	gradient.instantiate();
+	gradient->set_color(0, p_top);
+	gradient->set_color(1, p_bottom);
+
+	Ref<GradientTexture2D> texture;
+	texture.instantiate();
+	texture->set_gradient(gradient);
+	texture->set_fill_from(Vector2(0, p_from_y));
+	texture->set_fill_to(Vector2(0, 1));
+	texture->set_width(8);
+	texture->set_height(128);
+	return texture;
+}
+
 void ProjectHeroCard::_edit_pressed() {
 	emit_signal(SNAME("edit_pressed"));
 }
@@ -705,9 +721,24 @@ void ProjectHeroCard::_info_pressed() {
 	emit_signal(SNAME("info_pressed"), info_button->get_screen_position());
 }
 
-void ProjectHeroCard::set_project(const String &p_name, const String &p_date, const String &p_path, const Ref<Texture2D> &p_fallback_icon) {
+void ProjectHeroCard::set_project(const String &p_name, const String &p_date, const String &p_path, const String &p_version, const PackedStringArray &p_tags, ProjectList *p_parent_list) {
 	name_label->set_text(p_name);
 	date_label->set_text(p_date);
+	path_label->set_text(p_path);
+	version_label->set_text(p_version);
+	version_label->set_visible(!p_version.is_empty());
+
+	while (tag_container->get_child_count() > 0) {
+		Node *child = tag_container->get_child(0);
+		tag_container->remove_child(child);
+		child->queue_free();
+	}
+	for (const String &tag : p_tags) {
+		ProjectTag *tag_control = memnew(ProjectTag(tag));
+		tag_container->add_child(tag_control);
+		tag_control->connect_button_to(callable_mp(p_parent_list, &ProjectList::add_search_tag).bind(tag));
+	}
+	tag_container->set_visible(!p_tags.is_empty());
 
 	// The game saves a small preview on exit (see SceneTree), always overwriting the previous one.
 	Ref<Texture2D> texture;
@@ -723,8 +754,9 @@ void ProjectHeroCard::set_project(const String &p_name, const String &p_date, co
 	if (texture.is_valid()) {
 		preview->set_stretch_mode(TextureRect::STRETCH_KEEP_ASPECT_COVERED);
 	} else {
-		texture = p_fallback_icon;
-		preview->set_stretch_mode(TextureRect::STRETCH_KEEP_ASPECT_CENTERED);
+		// No preview yet: a plain gray gradient.
+		preview->set_stretch_mode(TextureRect::STRETCH_SCALE);
+		texture = _make_vertical_gradient(Color(0.30, 0.30, 0.33), Color(0.11, 0.11, 0.13), 0.0);
 	}
 	preview->set_texture(texture);
 }
@@ -737,21 +769,9 @@ void ProjectHeroCard::_notification(int p_what) {
 
 			header_label->add_theme_font_override(SceneStringName(font), get_theme_font(SNAME("bold"), EditorStringName(EditorFonts)));
 
-			// Bottom shade, so the name and date stay readable over any preview.
+			// Shade behind the name and the buttons.
 			const Color accent = get_theme_color(SNAME("accent_color"), EditorStringName(Editor));
-			Ref<Gradient> gradient;
-			gradient.instantiate();
-			gradient->set_color(0, Color(0, 0, 0, 0));
-			gradient->set_color(1, accent.darkened(0.45) * Color(1, 1, 1, 0.92));
-
-			Ref<GradientTexture2D> shade_texture;
-			shade_texture.instantiate();
-			shade_texture->set_gradient(gradient);
-			shade_texture->set_fill_from(Vector2(0, 0.45));
-			shade_texture->set_fill_to(Vector2(0, 1));
-			shade_texture->set_width(8);
-			shade_texture->set_height(128);
-			shade->set_texture(shade_texture);
+			shade->set_texture(_make_vertical_gradient(Color(0, 0, 0, 0), accent.darkened(0.45) * Color(1, 1, 1, 0.95), 0.35));
 		} break;
 	}
 }
@@ -764,25 +784,14 @@ void ProjectHeroCard::_bind_methods() {
 ProjectHeroCard::ProjectHeroCard() {
 	set_theme_type_variation("ProjectHeroCard");
 
-	VBoxContainer *vb = memnew(VBoxContainer);
-	vb->add_theme_constant_override("separation", int(12 * EDSCALE));
-	add_child(vb);
-
-	header_label = memnew(Label);
-	header_label->set_text(TTRC("Recent project"));
-	header_label->add_theme_font_size_override(SceneStringName(font_size), int(26 * EDSCALE));
-	vb->add_child(header_label);
-
-	// Preview with the name and date over it.
+	// Everything is stacked: the preview is the background, then the shade, then the content.
 	PanelContainer *stack = memnew(PanelContainer);
-	stack->set_v_size_flags(SIZE_EXPAND_FILL);
-	stack->set_custom_minimum_size(Size2(0, 150) * EDSCALE);
 	stack->add_theme_style_override(SceneStringName(panel), memnew(StyleBoxEmpty));
-	vb->add_child(stack);
+	add_child(stack);
 
 	preview = memnew(TextureRect);
 	preview->set_expand_mode(TextureRect::EXPAND_IGNORE_SIZE);
-	preview->set_stretch_mode(TextureRect::STRETCH_KEEP_ASPECT_COVERED);
+	preview->set_stretch_mode(TextureRect::STRETCH_SCALE);
 	stack->add_child(preview);
 
 	shade = memnew(TextureRect);
@@ -791,18 +800,28 @@ ProjectHeroCard::ProjectHeroCard() {
 	shade->set_mouse_filter(MOUSE_FILTER_IGNORE);
 	stack->add_child(shade);
 
-	MarginContainer *text_margin = memnew(MarginContainer);
-	text_margin->set_mouse_filter(MOUSE_FILTER_IGNORE);
-	text_margin->add_theme_constant_override("margin_left", int(14 * EDSCALE));
-	text_margin->add_theme_constant_override("margin_right", int(14 * EDSCALE));
-	text_margin->add_theme_constant_override("margin_top", int(10 * EDSCALE));
-	text_margin->add_theme_constant_override("margin_bottom", int(10 * EDSCALE));
-	stack->add_child(text_margin);
+	MarginContainer *content_margin = memnew(MarginContainer);
+	content_margin->add_theme_constant_override("margin_left", int(16 * EDSCALE));
+	content_margin->add_theme_constant_override("margin_right", int(16 * EDSCALE));
+	content_margin->add_theme_constant_override("margin_top", int(12 * EDSCALE));
+	content_margin->add_theme_constant_override("margin_bottom", int(16 * EDSCALE));
+	stack->add_child(content_margin);
 
-	VBoxContainer *text_vb = memnew(VBoxContainer);
-	text_vb->set_alignment(BoxContainer::ALIGNMENT_END);
-	text_vb->set_mouse_filter(MOUSE_FILTER_IGNORE);
-	text_margin->add_child(text_vb);
+	VBoxContainer *vb = memnew(VBoxContainer);
+	vb->add_theme_constant_override("separation", int(6 * EDSCALE));
+	content_margin->add_child(vb);
+
+	header_label = memnew(Label);
+	header_label->set_text(TTRC("Recent project"));
+	header_label->add_theme_font_size_override(SceneStringName(font_size), int(26 * EDSCALE));
+	header_label->add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8));
+	header_label->add_theme_constant_override("outline_size", int(4 * EDSCALE));
+	vb->add_child(header_label);
+
+	Control *spacer = memnew(Control);
+	spacer->set_v_size_flags(SIZE_EXPAND_FILL);
+	spacer->set_mouse_filter(MOUSE_FILTER_IGNORE);
+	vb->add_child(spacer);
 
 	name_label = memnew(Label);
 	name_label->set_auto_translate_mode(AUTO_TRANSLATE_MODE_DISABLED);
@@ -810,13 +829,37 @@ ProjectHeroCard::ProjectHeroCard() {
 	name_label->add_theme_font_size_override(SceneStringName(font_size), int(22 * EDSCALE));
 	name_label->add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8));
 	name_label->add_theme_constant_override("outline_size", int(4 * EDSCALE));
-	text_vb->add_child(name_label);
+	vb->add_child(name_label);
 
 	date_label = memnew(Label);
 	date_label->set_auto_translate_mode(AUTO_TRANSLATE_MODE_DISABLED);
 	date_label->add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8));
 	date_label->add_theme_constant_override("outline_size", int(4 * EDSCALE));
-	text_vb->add_child(date_label);
+	vb->add_child(date_label);
+
+	path_label = memnew(Label);
+	path_label->set_auto_translate_mode(AUTO_TRANSLATE_MODE_DISABLED);
+	path_label->set_structured_text_bidi_override(TextServer::STRUCTURED_TEXT_FILE);
+	path_label->set_text_overrun_behavior(TextServer::OVERRUN_TRIM_ELLIPSIS);
+	path_label->set_modulate(Color(1, 1, 1, 0.75));
+	path_label->add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8));
+	path_label->add_theme_constant_override("outline_size", int(4 * EDSCALE));
+	vb->add_child(path_label);
+
+	// Version and tags.
+	HBoxContainer *meta = memnew(HBoxContainer);
+	meta->add_theme_constant_override("separation", int(10 * EDSCALE));
+	vb->add_child(meta);
+
+	version_label = memnew(Label);
+	version_label->set_auto_translate_mode(AUTO_TRANSLATE_MODE_DISABLED);
+	version_label->add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8));
+	version_label->add_theme_constant_override("outline_size", int(4 * EDSCALE));
+	meta->add_child(version_label);
+
+	tag_container = memnew(HFlowContainer);
+	tag_container->set_h_size_flags(SIZE_EXPAND_FILL);
+	meta->add_child(tag_container);
 
 	// Quick actions.
 	HBoxContainer *actions = memnew(HBoxContainer);

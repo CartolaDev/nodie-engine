@@ -34,7 +34,6 @@ STATIC_ASSERT_INCOMPLETE_TYPE(class, RenderingServer);
 
 #include "core/config/engine.h"
 #include "core/config/project_settings.h"
-#include "core/debugger/engine_debugger.h"
 #include "core/io/dir_access.h"
 #include "core/io/image.h"
 #include "core/input/input.h"
@@ -689,9 +688,10 @@ void SceneTree::iteration_end() {
 }
 
 // Nodie: saves a small preview of the running game, so the project manager can show it.
-// Only for debug runs started by the editor. The file is always overwritten, so old previews vanish.
+// Only when the game runs through the editor binary (the project manager's Run button, or Run inside the editor).
+// The file is always overwritten, so old previews vanish.
 static void _nodie_save_preview(Window *p_root, bool p_force) {
-#ifdef DEBUG_ENABLED
+#ifdef TOOLS_ENABLED
 	static bool quit_preview_saved = false;
 	if (!p_force) {
 		if (quit_preview_saved) {
@@ -700,7 +700,7 @@ static void _nodie_save_preview(Window *p_root, bool p_force) {
 		quit_preview_saved = true;
 	}
 
-	if (!p_root || Engine::get_singleton()->is_editor_hint() || !EngineDebugger::is_active()) {
+	if (!p_root || Engine::get_singleton()->is_editor_hint()) {
 		return;
 	}
 	if (DisplayServer::get_singleton()->get_name() == "headless") {
@@ -728,7 +728,7 @@ static void _nodie_save_preview(Window *p_root, bool p_force) {
 	if (DirAccess::dir_exists_absolute(dir)) {
 		img->save_png(dir.path_join("nodie_preview.png"));
 	}
-#endif // DEBUG_ENABLED
+#endif // TOOLS_ENABLED
 }
 
 bool SceneTree::process(double p_time) {
