@@ -44,13 +44,33 @@ class ProjectList;
 class TextureButton;
 class TextureRect;
 
+// Draws a texture inside a rounded rectangle (optionally "cover" cropped), so it can sit flush against a rounded border.
+class RoundedPreview : public Control {
+	GDCLASS(RoundedPreview, Control)
+
+	Ref<Texture2D> texture;
+	real_t radius = 0;
+	bool cover = true;
+
+protected:
+	void _notification(int p_what);
+
+public:
+	void set_texture(const Ref<Texture2D> &p_texture);
+	void set_radius(real_t p_radius);
+	void set_cover(bool p_cover);
+
+	RoundedPreview();
+};
+
 // Most recently edited project: a 16:9 card (preview + labels) with the details and actions below it.
 class ProjectHeroCard : public VBoxContainer {
 	GDCLASS(ProjectHeroCard, VBoxContainer)
 
 	PanelContainer *card = nullptr;
-	TextureRect *preview = nullptr;
-	TextureRect *shade = nullptr;
+	RoundedPreview *preview = nullptr;
+	RoundedPreview *shade_top = nullptr;
+	RoundedPreview *shade = nullptr;
 	Label *header_label = nullptr;
 	Label *name_label = nullptr;
 	Label *date_label = nullptr;

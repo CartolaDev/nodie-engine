@@ -695,9 +695,72 @@ ProjectListItemControl::ProjectListItemControl() {
 	add_child(right_spacer);
 }
 
+// RoundedPreview.
+
+void RoundedPreview::set_texture(const Ref<Texture2D> &p_texture) {
+	texture = p_texture;
+	queue_redraw();
+}
+
+void RoundedPreview::set_radius(real_t p_radius) {
+	radius = p_radius;
+	queue_redraw();
+}
+
+void RoundedPreview::set_cover(bool p_cover) {
+	cover = p_cover;
+	queue_redraw();
+}
+
+void RoundedPreview::_notification(int p_what) {
+	switch (p_what) {
+		case NOTIFICATION_DRAW: {
+			const Size2 size = get_size();
+			if (texture.is_null() || size.x <= 0 || size.y <= 0) {
+				return;
+			}
+
+			// Part of the texture (0..1) that is shown, cropped like "cover" so the aspect ratio is kept.
+			Rect2 uv_region(0, 0, 1, 1);
+			const Size2 tex_size = texture->get_size();
+			if (cover && tex_size.x > 0 && tex_size.y > 0) {
+				const real_t scale = MAX(size.x / tex_size.x, size.y / tex_size.y);
+				const Size2 shown = size / scale;
+				uv_region = Rect2((tex_size - shown) / 2.0 / tex_size, shown / tex_size);
+			}
+
+			// Rounded rectangle outline, clockwise: top-left, top-right, bottom-right, bottom-left.
+			const real_t r = MIN(radius, MIN(size.x, size.y) / 2.0);
+			const int segments = 10;
+			const Point2 centers[4] = { Point2(r, r), Point2(size.x - r, r), Point2(size.x - r, size.y - r), Point2(r, size.y - r) };
+			const double start_angles[4] = { Math::PI, Math::PI * 1.5, 0.0, Math::PI * 0.5 };
+
+			Vector<Point2> points;
+			Vector<Point2> uvs;
+			for (int c = 0; c < 4; c++) {
+				for (int i = 0; i <= segments; i++) {
+					const double angle = start_angles[c] + (Math::PI * 0.5) * i / segments;
+					const Point2 point = centers[c] + Vector2(Math::cos(angle), Math::sin(angle)) * r;
+					points.push_back(point);
+					uvs.push_back(uv_region.position + Point2(point.x / size.x, point.y / size.y) * uv_region.size);
+				}
+			}
+
+			Vector<Color> colors;
+			colors.resize(points.size());
+			colors.fill(Color(1, 1, 1, 1));
+			draw_polygon(points, colors, uvs, texture);
+		} break;
+	}
+}
+
+RoundedPreview::RoundedPreview() {
+	set_mouse_filter(MOUSE_FILTER_IGNORE);
+}
+
 // ProjectHeroCard.
 
-static Ref<GradientTexture2D> _make_vertical_gradient(const Color &p_top, const Color &p_bottom, float p_from_y) {
+static Ref<GradientTexture2D> _make_vertical_gradient(const Color &p_top, const Color &p_bottom, float p_from_y, float p_to_y) {
 	Ref<Gradient> gradient;
 	gradient.instantiate();
 	gradient->set_color(0, p_top);
@@ -707,7 +770,7 @@ static Ref<GradientTexture2D> _make_vertical_gradient(const Color &p_top, const 
 	texture.instantiate();
 	texture->set_gradient(gradient);
 	texture->set_fill_from(Vector2(0, p_from_y));
-	texture->set_fill_to(Vector2(0, 1));
+	texture->set_fill_to(Vector2(0, p_to_y));
 	texture->set_width(8);
 	texture->set_height(128);
 	return texture;
@@ -752,11 +815,11 @@ void ProjectHeroCard::set_project(const String &p_name, const String &p_date, co
 	}
 
 	if (texture.is_valid()) {
-		preview->set_stretch_mode(TextureRect::STRETCH_KEEP_ASPECT_COVERED);
+		preview->set_cover(true);
 	} else {
 		// No preview yet: a plain gray gradient.
-		preview->set_stretch_mode(TextureRect::STRETCH_SCALE);
-		texture = _make_vertical_gradient(Color(0.30, 0.30, 0.33), Color(0.11, 0.11, 0.13), 0.0);
+		preview->set_cover(false);
+		texture = _make_vertical_gradient(Color(0.30, 0.30, 0.33), Color(0.11, 0.11, 0.13), 0.0, 1.0);
 	}
 	preview->set_texture(texture);
 }
@@ -769,9 +832,10 @@ void ProjectHeroCard::_notification(int p_what) {
 
 			header_label->add_theme_font_override(SceneStringName(font), get_theme_font(SNAME("bold"), EditorStringName(EditorFonts)));
 
-			// Shade behind the name and the buttons.
+			// Shades: dark at the top (for the title) and tinted at the bottom (for the name and date).
 			const Color accent = get_theme_color(SNAME("accent_color"), EditorStringName(Editor));
-			shade->set_texture(_make_vertical_gradient(Color(0, 0, 0, 0), accent.darkened(0.45) * Color(1, 1, 1, 0.95), 0.5));
+			shade_top->set_texture(_make_vertical_gradient(Color(0, 0, 0, 0.65), Color(0, 0, 0, 0), 0.0, 0.4));
+			shade->set_texture(_make_vertical_gradient(Color(0, 0, 0, 0), accent.darkened(0.45) * Color(1, 1, 1, 0.95), 0.5, 1.0));
 		} break;
 
 		case NOTIFICATION_RESIZED: {
@@ -794,20 +858,26 @@ ProjectHeroCard::ProjectHeroCard() {
 	card->set_theme_type_variation("ProjectHeroCard");
 	add_child(card);
 
-	// Stacked: the preview is the background, then the shade, then the labels.
+	// Stacked: the preview is the background, then the shades, then the labels.
 	PanelContainer *stack = memnew(PanelContainer);
 	stack->add_theme_style_override(SceneStringName(panel), memnew(StyleBoxEmpty));
 	card->add_child(stack);
 
-	preview = memnew(TextureRect);
-	preview->set_expand_mode(TextureRect::EXPAND_IGNORE_SIZE);
-	preview->set_stretch_mode(TextureRect::STRETCH_SCALE);
+	// Flush against the card border: border radius (20) minus border width (2).
+	const real_t inner_radius = 18 * EDSCALE;
+
+	preview = memnew(RoundedPreview);
+	preview->set_radius(inner_radius);
 	stack->add_child(preview);
 
-	shade = memnew(TextureRect);
-	shade->set_expand_mode(TextureRect::EXPAND_IGNORE_SIZE);
-	shade->set_stretch_mode(TextureRect::STRETCH_SCALE);
-	shade->set_mouse_filter(MOUSE_FILTER_IGNORE);
+	shade_top = memnew(RoundedPreview);
+	shade_top->set_radius(inner_radius);
+	shade_top->set_cover(false);
+	stack->add_child(shade_top);
+
+	shade = memnew(RoundedPreview);
+	shade->set_radius(inner_radius);
+	shade->set_cover(false);
 	stack->add_child(shade);
 
 	MarginContainer *content_margin = memnew(MarginContainer);
@@ -826,6 +896,7 @@ ProjectHeroCard::ProjectHeroCard() {
 	header_label = memnew(Label);
 	header_label->set_text(TTRC("Recent project"));
 	header_label->add_theme_font_size_override(SceneStringName(font_size), int(24 * EDSCALE));
+	header_label->add_theme_color_override(SceneStringName(font_color), Color(1, 1, 1, 0.97));
 	header_label->add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8));
 	header_label->add_theme_constant_override("outline_size", int(4 * EDSCALE));
 	card_vb->add_child(header_label);
@@ -839,12 +910,14 @@ ProjectHeroCard::ProjectHeroCard() {
 	name_label->set_auto_translate_mode(AUTO_TRANSLATE_MODE_DISABLED);
 	name_label->set_text_overrun_behavior(TextServer::OVERRUN_TRIM_ELLIPSIS);
 	name_label->add_theme_font_size_override(SceneStringName(font_size), int(22 * EDSCALE));
+	name_label->add_theme_color_override(SceneStringName(font_color), Color(1, 1, 1, 0.97));
 	name_label->add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8));
 	name_label->add_theme_constant_override("outline_size", int(4 * EDSCALE));
 	card_vb->add_child(name_label);
 
 	date_label = memnew(Label);
 	date_label->set_auto_translate_mode(AUTO_TRANSLATE_MODE_DISABLED);
+	date_label->add_theme_color_override(SceneStringName(font_color), Color(1, 1, 1, 0.9));
 	date_label->add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8));
 	date_label->add_theme_constant_override("outline_size", int(4 * EDSCALE));
 	card_vb->add_child(date_label);

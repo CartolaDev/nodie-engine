@@ -51,6 +51,7 @@
 #include "editor/project_manager/engine_update_label.h"
 #include "editor/project_manager/project_dialog.h"
 #include "editor/project_manager/project_list.h"
+#include "scene/resources/atlas_texture.h"
 #include "editor/project_manager/project_tag.h"
 #include "editor/project_manager/quick_settings_dialog.h"
 #include "editor/settings/editor_settings.h"
@@ -252,7 +253,16 @@ void ProjectManager::_update_theme(bool p_skip_creation) {
 		background_panel->add_theme_style_override(SceneStringName(panel), get_theme_stylebox("Background", EditorStringName(EditorStyles)));
 		main_view_container->add_theme_style_override(SceneStringName(panel), get_theme_stylebox("panel_container", "ProjectManager"));
 
-		title_bar_logo->set_button_icon(get_editor_theme_icon("TitleBarLogo"));
+		Ref<Texture2D> logo_icon = get_editor_theme_icon("TitleBarLogo");
+		if (title_bar_logo->has_meta("nodie_rail") && logo_icon.is_valid()) {
+			// The rail is narrow: keep only the cat from the wide logo (it takes the left part of the image).
+			Ref<AtlasTexture> cat_icon;
+			cat_icon.instantiate();
+			cat_icon->set_atlas(logo_icon);
+			cat_icon->set_region(Rect2(Point2(), Size2(logo_icon->get_width() * 0.44, logo_icon->get_height())));
+			logo_icon = cat_icon;
+		}
+		title_bar_logo->set_button_icon(logo_icon);
 		quick_settings_button->set_button_icon(get_editor_theme_icon("Tools"));
 
 		_set_main_view_icon(MAIN_VIEW_PROJECTS, get_editor_theme_icon("ProjectList"));
@@ -329,7 +339,6 @@ Button *ProjectManager::_add_main_view(MainViewTab p_id, const String &p_name, c
 	ERR_FAIL_COND_V(main_view_toggle_map.has(p_id), nullptr);
 
 	Button *toggle_button = memnew(Button);
-	toggle_button->set_flat(true);
 	toggle_button->set_theme_type_variation("NavRailButton");
 	toggle_button->set_toggle_mode(true);
 	toggle_button->set_button_group(main_view_toggles_group);
@@ -427,7 +436,11 @@ void ProjectManager::_update_hero_card() {
 	}
 
 	const ProjectList::Item &item = project_list->get_project_item(index);
-	hero_card->set_project(item.project_name, item.get_last_edited_string(), item.path, item.project_version, item.tags, project_list);
+	String last_edited = item.get_last_edited_string();
+	if (last_edited.length() == 19) {
+		last_edited = last_edited.left(16); // Drop the seconds.
+	}
+	hero_card->set_project(item.project_name, last_edited, item.path, item.project_version, item.tags, project_list);
 	hero_card->show();
 }
 
@@ -1571,9 +1584,10 @@ ProjectManager::ProjectManager() {
 		title_bar->hide();
 
 		title_bar_logo->get_parent()->remove_child(title_bar_logo);
-		// The logo is wide (cat + wordmark): keep it from stretching the rail.
-		title_bar_logo->add_theme_constant_override("icon_max_width", int(84 * EDSCALE));
-		title_bar_logo->set_custom_minimum_size(Size2(0, 48) * EDSCALE);
+		// The logo is wide (cat + wordmark): only the cat is used here (see the theme notification).
+		title_bar_logo->set_meta("nodie_rail", true);
+		title_bar_logo->add_theme_constant_override("icon_max_width", int(64 * EDSCALE));
+		title_bar_logo->set_custom_minimum_size(Size2(0, 64) * EDSCALE);
 		nav_rail->add_child(title_bar_logo);
 	}
 
@@ -1585,6 +1599,7 @@ ProjectManager::ProjectManager() {
 		nav_rail->add_child(rail_spacer);
 
 		quick_settings_button->get_parent()->remove_child(quick_settings_button);
+		quick_settings_button->set_flat(false); // Flat buttons would hide the rail styles.
 		quick_settings_button->set_theme_type_variation("NavRailButton");
 		quick_settings_button->set_icon_alignment(HORIZONTAL_ALIGNMENT_CENTER);
 		quick_settings_button->set_vertical_icon_alignment(VERTICAL_ALIGNMENT_TOP);
