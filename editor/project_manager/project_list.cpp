@@ -771,7 +771,12 @@ void ProjectHeroCard::_notification(int p_what) {
 
 			// Shade behind the name and the buttons.
 			const Color accent = get_theme_color(SNAME("accent_color"), EditorStringName(Editor));
-			shade->set_texture(_make_vertical_gradient(Color(0, 0, 0, 0), accent.darkened(0.45) * Color(1, 1, 1, 0.95), 0.35));
+			shade->set_texture(_make_vertical_gradient(Color(0, 0, 0, 0), accent.darkened(0.45) * Color(1, 1, 1, 0.95), 0.5));
+		} break;
+
+		case NOTIFICATION_RESIZED: {
+			// Keep the card 16:9, whatever the width of the column.
+			card->set_custom_minimum_size(Size2(0, get_size().x * 9.0 / 16.0));
 		} break;
 	}
 }
@@ -782,12 +787,17 @@ void ProjectHeroCard::_bind_methods() {
 }
 
 ProjectHeroCard::ProjectHeroCard() {
-	set_theme_type_variation("ProjectHeroCard");
+	add_theme_constant_override("separation", int(12 * EDSCALE));
 
-	// Everything is stacked: the preview is the background, then the shade, then the content.
+	// The card itself only holds the preview and its labels.
+	card = memnew(PanelContainer);
+	card->set_theme_type_variation("ProjectHeroCard");
+	add_child(card);
+
+	// Stacked: the preview is the background, then the shade, then the labels.
 	PanelContainer *stack = memnew(PanelContainer);
 	stack->add_theme_style_override(SceneStringName(panel), memnew(StyleBoxEmpty));
-	add_child(stack);
+	card->add_child(stack);
 
 	preview = memnew(TextureRect);
 	preview->set_expand_mode(TextureRect::EXPAND_IGNORE_SIZE);
@@ -801,27 +811,29 @@ ProjectHeroCard::ProjectHeroCard() {
 	stack->add_child(shade);
 
 	MarginContainer *content_margin = memnew(MarginContainer);
+	content_margin->set_mouse_filter(MOUSE_FILTER_IGNORE);
 	content_margin->add_theme_constant_override("margin_left", int(16 * EDSCALE));
 	content_margin->add_theme_constant_override("margin_right", int(16 * EDSCALE));
-	content_margin->add_theme_constant_override("margin_top", int(12 * EDSCALE));
-	content_margin->add_theme_constant_override("margin_bottom", int(16 * EDSCALE));
+	content_margin->add_theme_constant_override("margin_top", int(10 * EDSCALE));
+	content_margin->add_theme_constant_override("margin_bottom", int(12 * EDSCALE));
 	stack->add_child(content_margin);
 
-	VBoxContainer *vb = memnew(VBoxContainer);
-	vb->add_theme_constant_override("separation", int(6 * EDSCALE));
-	content_margin->add_child(vb);
+	VBoxContainer *card_vb = memnew(VBoxContainer);
+	card_vb->add_theme_constant_override("separation", int(2 * EDSCALE));
+	card_vb->set_mouse_filter(MOUSE_FILTER_IGNORE);
+	content_margin->add_child(card_vb);
 
 	header_label = memnew(Label);
 	header_label->set_text(TTRC("Recent project"));
-	header_label->add_theme_font_size_override(SceneStringName(font_size), int(26 * EDSCALE));
+	header_label->add_theme_font_size_override(SceneStringName(font_size), int(24 * EDSCALE));
 	header_label->add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8));
 	header_label->add_theme_constant_override("outline_size", int(4 * EDSCALE));
-	vb->add_child(header_label);
+	card_vb->add_child(header_label);
 
 	Control *spacer = memnew(Control);
 	spacer->set_v_size_flags(SIZE_EXPAND_FILL);
 	spacer->set_mouse_filter(MOUSE_FILTER_IGNORE);
-	vb->add_child(spacer);
+	card_vb->add_child(spacer);
 
 	name_label = memnew(Label);
 	name_label->set_auto_translate_mode(AUTO_TRANSLATE_MODE_DISABLED);
@@ -829,42 +841,37 @@ ProjectHeroCard::ProjectHeroCard() {
 	name_label->add_theme_font_size_override(SceneStringName(font_size), int(22 * EDSCALE));
 	name_label->add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8));
 	name_label->add_theme_constant_override("outline_size", int(4 * EDSCALE));
-	vb->add_child(name_label);
+	card_vb->add_child(name_label);
 
 	date_label = memnew(Label);
 	date_label->set_auto_translate_mode(AUTO_TRANSLATE_MODE_DISABLED);
 	date_label->add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8));
 	date_label->add_theme_constant_override("outline_size", int(4 * EDSCALE));
-	vb->add_child(date_label);
+	card_vb->add_child(date_label);
 
+	// Below the card: directory, version, tags and the actions.
 	path_label = memnew(Label);
 	path_label->set_auto_translate_mode(AUTO_TRANSLATE_MODE_DISABLED);
 	path_label->set_structured_text_bidi_override(TextServer::STRUCTURED_TEXT_FILE);
 	path_label->set_text_overrun_behavior(TextServer::OVERRUN_TRIM_ELLIPSIS);
 	path_label->set_modulate(Color(1, 1, 1, 0.75));
-	path_label->add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8));
-	path_label->add_theme_constant_override("outline_size", int(4 * EDSCALE));
-	vb->add_child(path_label);
+	add_child(path_label);
 
-	// Version and tags.
 	HBoxContainer *meta = memnew(HBoxContainer);
 	meta->add_theme_constant_override("separation", int(10 * EDSCALE));
-	vb->add_child(meta);
+	add_child(meta);
 
 	version_label = memnew(Label);
 	version_label->set_auto_translate_mode(AUTO_TRANSLATE_MODE_DISABLED);
-	version_label->add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8));
-	version_label->add_theme_constant_override("outline_size", int(4 * EDSCALE));
 	meta->add_child(version_label);
 
 	tag_container = memnew(HFlowContainer);
 	tag_container->set_h_size_flags(SIZE_EXPAND_FILL);
 	meta->add_child(tag_container);
 
-	// Quick actions.
 	HBoxContainer *actions = memnew(HBoxContainer);
 	actions->add_theme_constant_override("separation", int(10 * EDSCALE));
-	vb->add_child(actions);
+	add_child(actions);
 
 	edit_button = memnew(Button);
 	edit_button->set_text(TTRC("Edit"));

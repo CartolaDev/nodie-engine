@@ -1571,7 +1571,9 @@ ProjectManager::ProjectManager() {
 		title_bar->hide();
 
 		title_bar_logo->get_parent()->remove_child(title_bar_logo);
-		title_bar_logo->set_custom_minimum_size(Size2(0, 56) * EDSCALE);
+		// The logo is wide (cat + wordmark): keep it from stretching the rail.
+		title_bar_logo->add_theme_constant_override("icon_max_width", int(84 * EDSCALE));
+		title_bar_logo->set_custom_minimum_size(Size2(0, 48) * EDSCALE);
 		nav_rail->add_child(title_bar_logo);
 	}
 

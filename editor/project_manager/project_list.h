@@ -44,10 +44,11 @@ class ProjectList;
 class TextureButton;
 class TextureRect;
 
-// Big card for the most recently edited project (preview, name, details and quick actions).
-class ProjectHeroCard : public PanelContainer {
-	GDCLASS(ProjectHeroCard, PanelContainer)
+// Most recently edited project: a 16:9 card (preview + labels) with the details and actions below it.
+class ProjectHeroCard : public VBoxContainer {
+	GDCLASS(ProjectHeroCard, VBoxContainer)
 
+	PanelContainer *card = nullptr;
 	TextureRect *preview = nullptr;
 	TextureRect *shade = nullptr;
 	Label *header_label = nullptr;
