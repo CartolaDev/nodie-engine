@@ -315,7 +315,7 @@ class EditorAssetLibrary : public PanelContainer {
 	static const char *sort_key[SORT_MAX];
 	static const char *sort_text[SORT_MAX];
 
-	constexpr static Size2 THUMBNAIL_SIZE = Size2(114, 64);
+	constexpr static Size2 THUMBNAIL_SIZE = Size2(240, 135);
 
 	enum ImageType {
 		IMAGE_QUEUE_THUMBNAIL,

@@ -152,7 +152,7 @@ EditorAssetLibraryItem::EditorAssetLibraryItem(bool p_clickable) {
 	}
 
 	margin = memnew(MarginContainer);
-	int margin_size = 5 * EDSCALE;
+	int margin_size = (p_clickable ? 10 : 5) * EDSCALE;
 	margin->add_theme_constant_override(SNAME("margin_left"), margin_size);
 	margin->add_theme_constant_override(SNAME("margin_right"), margin_size);
 	margin->add_theme_constant_override(SNAME("margin_top"), margin_size);
@@ -161,15 +161,21 @@ EditorAssetLibraryItem::EditorAssetLibraryItem(bool p_clickable) {
 	margin->set_clip_contents(true);
 	add_child(margin);
 
-	HBoxContainer *hb = memnew(HBoxContainer);
-	// Add some spacing to visually separate the icon from the asset details.
-	hb->add_theme_constant_override("separation", 15 * EDSCALE);
+	// Cards in the list are vertical (image on top, text below).
+	// The header of the details dialog keeps the horizontal layout.
+	BoxContainer *hb = p_clickable ? static_cast<BoxContainer *>(memnew(VBoxContainer)) : static_cast<BoxContainer *>(memnew(HBoxContainer));
+	hb->add_theme_constant_override("separation", (p_clickable ? 10 : 15) * EDSCALE);
 	hb->set_mouse_filter(MOUSE_FILTER_IGNORE);
 	margin->add_child(hb);
 
 	icon = memnew(TextureRect);
 	icon->set_accessibility_name(TTRC("Thumbnail"));
-	icon->set_custom_minimum_size(EditorAssetLibrary::THUMBNAIL_SIZE * EDSCALE);
+	icon->set_expand_mode(TextureRect::EXPAND_IGNORE_SIZE);
+	if (p_clickable) {
+		icon->set_custom_minimum_size(Size2(0, 130) * EDSCALE);
+	} else {
+		icon->set_custom_minimum_size(Size2(114, 64) * EDSCALE);
+	}
 	icon->set_stretch_mode(TextureRect::STRETCH_KEEP_ASPECT_CENTERED);
 	icon->set_mouse_filter(MOUSE_FILTER_IGNORE);
 	hb->add_child(icon);
@@ -244,7 +250,7 @@ EditorAssetLibraryItem::EditorAssetLibraryItem(bool p_clickable) {
 	rating_hbox->add_child(rating_count);
 
 	set_accessibility_name(TTRC("Open Asset Details"));
-	set_custom_minimum_size(Size2(250, 80) * EDSCALE);
+	set_custom_minimum_size((p_clickable ? Size2(230, 0) : Size2(250, 80)) * EDSCALE);
 	set_h_size_flags(SIZE_EXPAND_FILL);
 }
 
@@ -954,6 +960,8 @@ EditorAssetLibraryItemDownload::EditorAssetLibraryItemDownload() {
 	HBoxContainer *hb = memnew(HBoxContainer);
 	panel->add_child(hb);
 	icon = memnew(TextureRect);
+	icon->set_expand_mode(TextureRect::EXPAND_IGNORE_SIZE);
+	icon->set_custom_minimum_size(Size2(114, 64) * EDSCALE);
 	icon->set_stretch_mode(TextureRect::STRETCH_KEEP_ASPECT_CENTERED);
 	icon->set_v_size_flags(0);
 	hb->add_child(icon);
@@ -1535,14 +1543,8 @@ HBoxContainer *EditorAssetLibrary::_make_pages(int p_page, int p_page_count, int
 	}
 
 	// 🎜 Do the Mario! Eat your arms, and then again... 🎜
-	int from = p_page - (5 / EDSCALE);
-	if (from < 1) {
-		from = 1;
-	}
-	int to = from + (10 / EDSCALE);
-	if (to > p_page_count) {
-		to = p_page_count;
-	}
+	int from = MAX(1, p_page - 2);
+	int to = MIN(p_page_count, p_page + 2);
 
 	hbc->add_spacer();
 	hbc->add_theme_constant_override("separation", 5 * EDSCALE);
@@ -1618,6 +1620,14 @@ HBoxContainer *EditorAssetLibrary::_make_pages(int p_page, int p_page_count, int
 	last->connect(SceneStringName(theme_changed), callable_mp(this, &EditorAssetLibrary::_update_button_icon).bind(last, SNAME("ForwardEnd")));
 
 	hbc->add_spacer();
+
+	// Nodie: touch-friendly pager buttons.
+	for (int i = 0; i < hbc->get_child_count(); i++) {
+		Button *b = Object::cast_to<Button>(hbc->get_child(i));
+		if (b) {
+			b->set_custom_minimum_size(Size2(48, 48) * EDSCALE);
+		}
+	}
 
 	return hbc;
 }
@@ -1810,13 +1820,12 @@ void EditorAssetLibrary::_http_request_completed(int p_status, int p_code, const
 			current_page = MIN(current_page, pages);
 			Array result = d["hits"];
 
-			asset_top_page = _make_pages(current_page, pages, page_len, total_items, result.size());
-			library_vb->add_child(asset_top_page);
+			// Nodie: only the bottom pager is shown, to save vertical space.
 
 			asset_items = memnew(GridContainer);
 			_update_asset_items_columns();
-			asset_items->add_theme_constant_override("h_separation", 10 * EDSCALE);
-			asset_items->add_theme_constant_override("v_separation", 10 * EDSCALE);
+			asset_items->add_theme_constant_override("h_separation", 14 * EDSCALE);
+			asset_items->add_theme_constant_override("v_separation", 14 * EDSCALE);
 
 			library_vb->add_child(asset_items);
 
@@ -2066,7 +2075,7 @@ void EditorAssetLibrary::_update_asset_items_columns() {
 		return;
 	}
 
-	int new_columns = get_size().x / (450.0 * EDSCALE);
+	int new_columns = get_size().x / (270.0 * EDSCALE);
 	new_columns = MAX(1, new_columns);
 
 	if (new_columns != asset_items->get_columns()) {
@@ -2187,7 +2196,8 @@ EditorAssetLibrary::EditorAssetLibrary(bool p_templates_only) {
 	sort->set_fit_to_longest_item(false);
 	sort->connect(SceneStringName(item_selected), callable_mp(this, &EditorAssetLibrary::_search).bind(1).unbind(1));
 
-	search_hb2->add_child(memnew(Label(TTRC("Category:"))));
+	Label *category_label = memnew(Label(TTRC("Category:")));
+	search_hb2->add_child(category_label);
 	categories = memnew(OptionButton);
 	if (p_templates_only) {
 		categories->add_item(TTRC("Template"));
@@ -2200,6 +2210,11 @@ EditorAssetLibrary::EditorAssetLibrary(bool p_templates_only) {
 	categories->set_h_size_flags(Control::SIZE_EXPAND_FILL);
 	search_hb2->add_child(categories);
 	categories->connect(SceneStringName(item_selected), callable_mp(this, &EditorAssetLibrary::_search).bind(1).unbind(1));
+	if (p_templates_only) {
+		// Nodie: the only category is "Template", so the filter is useless.
+		category_label->hide();
+		categories->hide();
+	}
 
 	search_hb2->add_child(memnew(Label(TTRC("Source:"))));
 	repository = memnew(OptionButton);
@@ -2220,6 +2235,13 @@ EditorAssetLibrary::EditorAssetLibrary(bool p_templates_only) {
 	search_hb2->add_child(licenses);
 	licenses->get_popup()->connect(SceneStringName(id_pressed), callable_mp(this, &EditorAssetLibrary::_licenses_id_pressed));
 	licenses->get_popup()->connect("popup_hide", callable_mp(this, &EditorAssetLibrary::_licenses_popup_hide));
+
+	// Nodie: touch-friendly control height.
+	const Size2 touch_min = Size2(0, 44 * EDSCALE);
+	filter->set_custom_minimum_size(touch_min);
+	sort->set_custom_minimum_size(touch_min);
+	repository->set_custom_minimum_size(touch_min);
+	licenses->set_custom_minimum_size(touch_min);
 
 	/////////
 
@@ -2265,8 +2287,8 @@ EditorAssetLibrary::EditorAssetLibrary(bool p_templates_only) {
 	library_vb->add_child(asset_top_page);
 
 	asset_items = memnew(GridContainer);
-	asset_items->add_theme_constant_override("h_separation", 10 * EDSCALE);
-	asset_items->add_theme_constant_override("v_separation", 10 * EDSCALE);
+	asset_items->add_theme_constant_override("h_separation", 14 * EDSCALE);
+	asset_items->add_theme_constant_override("v_separation", 14 * EDSCALE);
 
 	library_vb->add_child(asset_items);
 
