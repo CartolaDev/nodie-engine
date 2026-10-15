@@ -626,7 +626,7 @@ EditorAssetLibraryItemDescription::EditorAssetLibraryItemDescription() {
 
 	desc_vbox = memnew(VBoxContainer);
 	desc_vbox->set_h_size_flags(Control::SIZE_EXPAND_FILL);
-	desc_vbox->set_custom_minimum_size(Size2(440, 440) * EDSCALE);
+	desc_vbox->set_custom_minimum_size(Size2(320, 200) * EDSCALE);
 	root->add_child(desc_vbox);
 
 	item = memnew(EditorAssetLibraryItem);
@@ -650,7 +650,7 @@ EditorAssetLibraryItemDescription::EditorAssetLibraryItemDescription() {
 	version_list->set_fit_to_longest_item(false);
 	version_list->set_text_overrun_behavior(TextServer::OVERRUN_TRIM_ELLIPSIS);
 	version_list->set_tooltip_text(TTRC("Download other versions."));
-	version_list->set_custom_minimum_size(Size2(100 * EDSCALE, 0));
+	version_list->set_custom_minimum_size(Size2(100 * EDSCALE, 44 * EDSCALE));
 	version_list->set_h_size_flags(Control::SIZE_EXPAND_FILL);
 	version_list->hide(); // Will be shown if multiple versions are available.
 	contents->add_child(version_list);
@@ -696,6 +696,7 @@ EditorAssetLibraryItemDescription::EditorAssetLibraryItemDescription() {
 	previews_vbox->add_theme_constant_override("separation", 15 * EDSCALE);
 	previews_vbox->set_v_size_flags(Control::SIZE_EXPAND_FILL);
 	previews_vbox->set_h_size_flags(Control::SIZE_EXPAND_FILL);
+	previews_vbox->set_stretch_ratio(1.5); // Nodie: previews get more room than the text.
 	root->add_child(previews_vbox);
 
 	HBoxContainer *previews_hbox = memnew(HBoxContainer);
@@ -712,7 +713,7 @@ EditorAssetLibraryItemDescription::EditorAssetLibraryItemDescription() {
 	preview = memnew(TextureRect);
 	preview->set_expand_mode(TextureRect::EXPAND_IGNORE_SIZE);
 	preview->set_stretch_mode(TextureRect::STRETCH_KEEP_ASPECT_CENTERED);
-	preview->set_custom_minimum_size(Size2(640, 345) * EDSCALE);
+	preview->set_custom_minimum_size(Size2(0, 160) * EDSCALE);
 	preview->set_h_size_flags(Control::SIZE_EXPAND_FILL);
 	previews_hbox->add_child(preview);
 
@@ -742,7 +743,7 @@ EditorAssetLibraryItemDescription::EditorAssetLibraryItemDescription() {
 	previews->set_vertical_scroll_mode(ScrollContainer::SCROLL_MODE_DISABLED);
 	previews_bg->add_child(previews);
 	preview_hb = memnew(HBoxContainer);
-	preview_hb->set_custom_minimum_size(Size2(620, 90) * EDSCALE);
+	preview_hb->set_custom_minimum_size(Size2(0, 90) * EDSCALE);
 	preview_hb->set_v_size_flags(Control::SIZE_EXPAND_FILL);
 	previews->add_child(preview_hb);
 
@@ -750,6 +751,12 @@ EditorAssetLibraryItemDescription::EditorAssetLibraryItemDescription() {
 
 	set_ok_button_text(TTRC("Download"));
 	set_cancel_button_text(TTRC("Close"));
+
+	// Nodie: big, touch-friendly buttons.
+	get_ok_button()->set_custom_minimum_size(Size2(180, 48) * EDSCALE);
+	get_cancel_button()->set_custom_minimum_size(Size2(140, 48) * EDSCALE);
+	store->set_custom_minimum_size(Size2(0, 44 * EDSCALE));
+	source->set_custom_minimum_size(Size2(0, 44 * EDSCALE));
 }
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -1963,7 +1970,7 @@ void EditorAssetLibrary::_http_request_completed(int p_status, int p_code, const
 				}
 			}
 
-			description->popup_centered();
+			description->popup_centered_ratio(0.92);
 
 			_api_request("releases/" + String(p["slug"]) + "/" + String(d["slug"]) + "/", REQUESTING_RELEASES);
 		} break;
